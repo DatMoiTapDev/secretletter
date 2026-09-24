@@ -1,0 +1,13 @@
+[
+  {
+    "id": "usr_tiendat_root",
+    "username": "tiendat",
+    "passwordHash": "$2b$10$zeGnWXmtmf5f2C/.JJ7DAeuuohK9BihIW.aqrAUV1oIbymC6Fa9xq",
+    "initialPassword": "Tiendat@2006",
+    "displayName": "Tiến Đạt",
+    "avatar": "👑",
+    "role": "admin",
+    "status": "active",
+    "createdAt": "2026-09-24T07:15:00.000Z"
+  }
+]

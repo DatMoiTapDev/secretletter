@@ -1,0 +1,26 @@
+{
+  "tet": {
+    "id": "tet",
+    "name": "Tết",
+    "emoji": "🧧",
+    "recipients": []
+  },
+  "birthday": {
+    "id": "birthday",
+    "name": "Sinh nhật",
+    "emoji": "🎂",
+    "recipients": []
+  },
+  "cute": {
+    "id": "cute",
+    "name": "Yêu",
+    "emoji": "💕",
+    "recipients": []
+  },
+  "emotional": {
+    "id": "emotional",
+    "name": "Tâm tình",
+    "emoji": "🌙",
+    "recipients": []
+  }
+}
