@@ -65,7 +65,7 @@ export default function FloatingBubbles({ onSelectTheme, isDark = false }) {
       </div>
 
       {/* LƯỚI 4 BONG BÓNG: FIT 2x2 TRÊN MOBILE VÀ 4 CỘT TRÊN DESKTOP */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 items-center justify-center z-20 w-full max-w-4xl px-2">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 lg:gap-8 items-center justify-center z-20 w-full max-w-4xl px-2">
         {THEME_LIST.map((theme) => {
           const config = bubbleConfigs[theme.id] || {
             delay: '0s',
@@ -82,7 +82,7 @@ export default function FloatingBubbles({ onSelectTheme, isDark = false }) {
             >
               {/* QUẢ BONG BÓNG THỦY TINH NỔI */}
               <div
-                className={`relative w-32 h-32 sm:w-40 sm:h-40 lg:w-44 lg:h-44 rounded-full flex flex-col items-center justify-center p-3 sm:p-4 transition-all duration-500 transform group-hover:scale-105 group-hover:-translate-y-1.5 active:scale-95 ${
+                className={`relative w-28 h-28 xs:w-32 xs:h-32 sm:w-40 sm:h-40 lg:w-44 lg:h-44 rounded-full flex flex-col items-center justify-center p-2.5 xs:p-3 sm:p-4 transition-all duration-500 transform group-hover:scale-105 group-hover:-translate-y-1.5 active:scale-95 ${
                   isDark
                     ? `bg-white/[0.05] hover:bg-white/[0.1] border border-white/12 shadow-[0_8px_30px_rgba(0,0,0,0.4)] backdrop-blur-xl ${config.darkGlow}`
                     : `bg-white/80 hover:bg-white/95 border border-white/80 shadow-[0_10px_35px_rgba(0,0,0,0.06)] backdrop-blur-xl ${config.lightGlow}`
@@ -93,25 +93,25 @@ export default function FloatingBubbles({ onSelectTheme, isDark = false }) {
                 }}
               >
                 {/* Vệt phản chiếu ánh kính bóng (Glass specular highlight) */}
-                <div className={`absolute top-2.5 left-3.5 sm:left-4 w-8 sm:w-11 h-4 sm:h-5 rounded-full transform -rotate-45 pointer-events-none ${
+                <div className={`absolute top-2.5 left-3.5 sm:left-4 w-7 xs:w-8 sm:w-11 h-3.5 xs:h-4 sm:h-5 rounded-full transform -rotate-45 pointer-events-none ${
                   isDark 
                     ? 'bg-gradient-to-b from-white/35 to-transparent' 
                     : 'bg-gradient-to-b from-white/90 to-white/10'
                 }`} />
 
                 {/* Điểm sáng phụ dưới góc */}
-                <div className="absolute bottom-3 right-3 sm:right-4 w-3 sm:w-4 h-1.5 sm:h-2 rounded-full bg-white/20 blur-xs pointer-events-none" />
+                <div className="absolute bottom-2.5 right-2.5 xs:bottom-3 xs:right-3 sm:right-4 w-2.5 xs:w-3 sm:w-4 h-1.5 sm:h-2 rounded-full bg-white/20 blur-xs pointer-events-none" />
 
                 {/* Hạt bụi sáng mịn bên trong */}
                 <div className="absolute inset-0 rounded-full bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] opacity-15 pointer-events-none" />
 
                 {/* Biểu tượng Emoji */}
-                <span className="text-3xl sm:text-4xl mb-2 filter drop-shadow-sm transform transition-transform duration-300 group-hover:scale-115">
+                <span className="text-2xl xs:text-3xl sm:text-4xl mb-1 xs:mb-2 filter drop-shadow-sm transform transition-transform duration-300 group-hover:scale-115">
                   {theme.emoji}
                 </span>
 
                 {/* Tên Chủ Đề Ngắn Gọn: Tết / Sinh nhật / Yêu / Tâm tình */}
-                <span className={`font-serif text-sm sm:text-base text-center leading-tight tracking-wide transition-colors px-1 ${
+                <span className={`font-serif text-xs xs:text-sm sm:text-base text-center leading-tight tracking-wide transition-colors px-1 ${
                   isDark
                     ? 'font-medium text-neutral-100 group-hover:text-amber-200'
                     : 'font-semibold text-neutral-900 group-hover:text-amber-800'

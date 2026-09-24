@@ -20,9 +20,7 @@ import {
   Sun,
   Moon,
   Volume2,
-  VolumeX,
-  Smartphone,
-  Monitor
+  VolumeX
 } from 'lucide-react';
 import { THEME_LIST, getTheme } from '../types/theme';
 import { PRESET_TRACKS, soundEngine } from '../audio/soundEngine';
@@ -509,22 +507,6 @@ export default function AdminEditor() {
                 />
               </div>
             </div>
-
-            {/* NÚT XEM 2 MÀN HÌNH (MOBILE + LAPTOP) */}
-            <Link
-              to="/dual"
-              onClick={() => soundEngine.playClickSound()}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-sans transition-all cursor-pointer ${
-                isDarkMode
-                  ? 'bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-white/10'
-                  : 'bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-300 shadow-xs'
-              }`}
-              title="Xem giao diện đồng thời trên Điện thoại & Laptop"
-            >
-              <Smartphone size={13} className="text-amber-500" />
-              <Monitor size={13} className="text-sky-500 -ml-0.5" />
-              <span className="hidden sm:inline">2 Màn hình</span>
-            </Link>
 
             <button
               type="button"

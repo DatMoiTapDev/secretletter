@@ -30,8 +30,6 @@ import {
   Moon,
   Volume2,
   VolumeX,
-  Smartphone,
-  Monitor,
   ArrowLeft
 } from 'lucide-react';
 import { THEMES, THEME_LIST } from '../types/theme';
@@ -684,22 +682,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* NÚT XEM 2 MÀN HÌNH (MOBILE + LAPTOP) */}
-            <Link
-              to="/dual"
-              onClick={() => soundEngine.playClickSound()}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-sans transition-all cursor-pointer ${
-                isDarkMode
-                  ? 'bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-white/10'
-                  : 'bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-300 shadow-xs'
-              }`}
-              title="Xem giao diện đồng thời trên Điện thoại & Laptop"
-            >
-              <Smartphone size={13} className="text-amber-500" />
-              <Monitor size={13} className="text-sky-500 -ml-0.5" />
-              <span className="hidden sm:inline">2 Màn hình</span>
-            </Link>
-
             <Link
               to="/"
               target="_blank"
@@ -729,7 +711,7 @@ export default function AdminDashboard() {
         </header>
 
         {/* NÚT CHUYỂN ĐỔI 3 TAB QUẢN TRỊ */}
-        <div className={`flex flex-wrap items-center gap-2.5 border-b pb-3 ${
+        <div className={`flex flex-wrap items-center gap-2 border-b pb-3 ${
           isDarkMode ? 'border-white/10' : 'border-neutral-200'
         }`}>
           {/* TAB 1: VIBE HUB */}
@@ -739,7 +721,7 @@ export default function AdminDashboard() {
               soundEngine.playClickSound();
               setActiveStudioTab('vibeHub');
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-serif font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-serif font-bold transition-all cursor-pointer ${
               activeStudioTab === 'vibeHub'
                 ? 'bg-amber-500 text-neutral-950 shadow-md'
                 : isDarkMode
@@ -747,8 +729,9 @@ export default function AdminDashboard() {
                   : 'bg-white text-neutral-600 hover:text-neutral-900 border border-neutral-200 shadow-xs'
             }`}
           >
-            <Layers size={16} />
-            <span>1. Vibe Hub (Bong Bóng & Khóa 2 Tầng)</span>
+            <Layers size={15} className="shrink-0" />
+            <span className="hidden sm:inline">1. Vibe Hub (Bong Bóng & Khóa 2 Tầng)</span>
+            <span className="sm:hidden">1. Vibe Hub</span>
           </button>
 
           {/* TAB 2: THƯ LINK TRỰC TIẾP */}
@@ -758,7 +741,7 @@ export default function AdminDashboard() {
               soundEngine.playClickSound();
               setActiveStudioTab('direct');
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-serif font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-serif font-bold transition-all cursor-pointer ${
               activeStudioTab === 'direct'
                 ? 'bg-amber-500 text-neutral-950 shadow-md'
                 : isDarkMode
@@ -766,8 +749,9 @@ export default function AdminDashboard() {
                   : 'bg-white text-neutral-600 hover:text-neutral-900 border border-neutral-200 shadow-xs'
             }`}
           >
-            <Mail size={16} />
-            <span>2. Thư Đường Link Riêng (/letter/:id)</span>
+            <Mail size={15} className="shrink-0" />
+            <span className="hidden sm:inline">2. Thư Đường Link Riêng (/letter/:id)</span>
+            <span className="sm:hidden">2. Thư Riêng</span>
           </button>
 
           {/* TAB 3: QUẢN TRỊ TÀI KHOẢN THÀNH VIÊN GỬI THƯ */}
@@ -777,7 +761,7 @@ export default function AdminDashboard() {
               soundEngine.playClickSound();
               setActiveStudioTab('users');
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-serif font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-serif font-bold transition-all cursor-pointer ${
               activeStudioTab === 'users'
                 ? 'bg-amber-500 text-neutral-950 shadow-md'
                 : isDarkMode
@@ -785,8 +769,9 @@ export default function AdminDashboard() {
                   : 'bg-white text-neutral-600 hover:text-neutral-900 border border-neutral-200 shadow-xs'
             }`}
           >
-            <Users size={16} />
-            <span>3. Quản Trị Tài Khoản Thành Viên ({users.length})</span>
+            <Users size={15} className="shrink-0" />
+            <span className="hidden sm:inline">3. Quản Trị Tài Khoản Thành Viên ({users.length})</span>
+            <span className="sm:hidden">3. Thành Viên ({users.length})</span>
           </button>
         </div>
 

@@ -256,7 +256,7 @@ export default function RecipientView({ previewData = null }) {
               title={isDark ? 'Chạm để sang Nền Sáng ☀️' : 'Chạm để sang Nền Tối 🌙'}
             >
               {isDark ? <Moon size={13} className="text-sky-300" /> : <Sun size={13} className="text-amber-500" />}
-              <span>{isDark ? 'Nền Tối' : 'Nền Sáng'}</span>
+              <span className="hidden xs:inline">{isDark ? 'Nền Tối' : 'Nền Sáng'}</span>
             </button>
 
             {/* Tên người nhận tinh tế */}

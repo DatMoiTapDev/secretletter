@@ -72,8 +72,7 @@ Khi người dùng chạm vào một chủ đề, giai điệu tương ứng s�
   * **Khóa 2 (Ổ khóa thư riêng):** Mỗi người có thể có nhiều ổ khóa thư nhỏ với mật mã và gợi ý riêng biệt.
 * **Phong Bì Mở Nắp 3D:** Hiệu ứng xé niêm phong và mở nắp phong bì chuyển động mượt mà.
 * **💌 Điều Chưa Nói (Secret Unsaid):** Phần bí mật ẩn trong thư, người nhận chạm nhẹ để bóc mở bất ngờ.
-* **✨ Spotlight Điều Cuối Cùng:** Thông điệp kết thúc nổi bật khi người đọc hoàn tất lá thư.
-* **📱💻 Chế Độ 2 Màn Hình (Dual View):** Xem đồng thời cả giao diện trên Điện thoại di động và Máy tính xách tay tại `/dual`.
+* **📱💻 Giao Diện Responsive Toàn Diện:** Tự động thích ứng hoàn hảo khi truy cập bằng Điện thoại di động (Mobile) hoặc Máy tính (Desktop/Laptop).
 * **☀️ / 🌙 Touch Button Sáng/Tối:** Chuyển đổi nền sáng kem nhã nhặn hoặc nền tối huyền bí chỉ với một chạm.
 
 ---

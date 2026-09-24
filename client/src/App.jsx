@@ -4,7 +4,6 @@ import Home from './pages/Home';
 import RecipientView from './pages/RecipientView';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminEditor from './pages/AdminEditor';
-import DualView from './pages/DualView';
 import MemberLogin from './pages/MemberLogin';
 import MemberDashboard from './pages/MemberDashboard';
 import MemberCompose from './pages/MemberCompose';
@@ -15,9 +14,6 @@ export default function App() {
     <Routes>
       {/* Trang chủ cổng thông tin (Công khai, không cần đăng nhập) */}
       <Route path="/" element={<Home />} />
-
-      {/* Chế độ xem song song 2 màn hình: Điện thoại & Máy tính */}
-      <Route path="/dual" element={<DualView />} />
 
       {/* Trải nghiệm người nhận mở và đọc lá thư */}
       <Route path="/letter/:id" element={<RecipientView />} />
