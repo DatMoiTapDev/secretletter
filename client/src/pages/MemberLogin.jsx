@@ -189,26 +189,12 @@ export default function MemberLogin() {
           </button>
         </form>
 
-        {/* HƯỚNG DẪN ĐĂNG NHẬP */}
-        <div className={`p-4 rounded-2xl border text-xs space-y-2 ${
-          isDarkMode ? 'bg-neutral-800/60 border-white/5 text-neutral-400' : 'bg-stone-50 border-stone-200 text-stone-600'
+        {/* LỜI NHẮC RIÊNG TƯ */}
+        <div className={`p-3.5 rounded-2xl border text-xs text-center space-y-1.5 ${
+          isDarkMode ? 'bg-neutral-800/40 border-white/5 text-neutral-400' : 'bg-stone-50 border-stone-200 text-stone-500'
         }`}>
-          <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400">
-            <Sparkles size={14} />
-            <span>Phân quyền tài khoản</span>
-          </div>
-          <div className="font-serif leading-relaxed text-[11px] space-y-1">
-            <div className="flex items-center justify-between">
-              <span>👑 <strong>Quản trị viên:</strong></span>
-              <span className="font-mono text-amber-600 dark:text-amber-400 font-bold">admin / Tiendat@2006</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>💌 <strong>Thành viên:</strong></span>
-              <span>Tài khoản được Admin cấp riêng</span>
-            </div>
-          </div>
-          <p className="font-serif text-[11px] opacity-80 pt-1 border-t border-neutral-200 dark:border-white/5">
-            Nếu chưa có tài khoản gửi thư, bạn vẫn có thể đọc thư bình thường tại trang chủ mà không cần đăng nhập.
+          <p className="font-serif text-[11px] leading-relaxed">
+            💌 <strong>Lưu ý:</strong> Tài khoản gửi thư được quản trị viên cấp riêng. Người nhận thư có thể mở và đọc thư trực tiếp tại trang chủ hoặc qua liên kết riêng mà không cần đăng nhập.
           </p>
         </div>
 

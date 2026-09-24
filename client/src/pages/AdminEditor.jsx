@@ -123,8 +123,12 @@ export default function AdminEditor() {
 
   // Tải dữ liệu thư nếu đang ở chế độ chỉnh sửa
   useEffect(() => {
-    if (!adminToken && !currentUser) {
+    if (isMemberMode && !currentUser) {
       navigate('/login', { replace: true });
+      return;
+    }
+    if (!isMemberMode && !adminToken) {
+      navigate('/admin', { replace: true });
       return;
     }
 
@@ -401,8 +405,32 @@ export default function AdminEditor() {
     );
   }
 
-  // Khóa màn hình nếu chưa đăng nhập Master Admin
-  if (!adminToken) {
+  // Khóa màn hình:
+  // Nếu ở chế độ Thành viên (/dashboard/compose) mà chưa đăng nhập:
+  if (isMemberMode && !currentUser) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center p-4 transition-colors ${isDarkMode ? 'bg-neutral-950 text-white' : 'bg-stone-100 text-stone-900'}`}>
+        <div className={`max-w-md w-full p-8 rounded-3xl border shadow-2xl text-center ${isDarkMode ? 'bg-neutral-900 border-white/15' : 'bg-white border-stone-200'}`}>
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mx-auto mb-5 text-amber-500">
+            <Lock size={32} />
+          </div>
+          <h2 className="text-2xl font-serif font-bold mb-2">Vui Lòng Đăng Nhập</h2>
+          <p className="text-xs text-stone-500 dark:text-neutral-400 mb-6 font-serif italic">
+            Bạn cần đăng nhập tài khoản thành viên để bắt đầu gửi những lá thư yêu thương.
+          </p>
+          <Link
+            to="/login"
+            className="w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-sm block transition-all shadow-md"
+          >
+            Đến Trang Đăng Nhập
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Nếu ở chế độ Admin (/admin/new) mà chưa có mã quản trị:
+  if (!isMemberMode && !adminToken) {
     return (
       <div className={`min-h-screen flex items-center justify-center p-4 transition-colors ${isDarkMode ? 'bg-neutral-950 text-white' : 'bg-stone-100 text-stone-900'}`}>
         <div className={`max-w-md w-full p-8 rounded-3xl border shadow-2xl text-center ${isDarkMode ? 'bg-neutral-900 border-white/15' : 'bg-white border-stone-200'}`}>
@@ -411,7 +439,7 @@ export default function AdminEditor() {
           </div>
           <h2 className="text-2xl font-serif font-bold mb-2">Khu Vực Quản Trị Đang Bị Khóa</h2>
           <p className="text-xs text-stone-500 dark:text-neutral-400 mb-6 font-serif italic">
-            Bạn cần có quyền Quản trị viên (Master Admin) để truy cập và soạn thảo lá thư.
+            Bạn cần có quyền Quản trị viên (Master Admin) để truy cập không gian này.
           </p>
           <Link
             to="/admin"
