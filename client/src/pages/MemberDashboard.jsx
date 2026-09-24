@@ -90,7 +90,10 @@ export default function MemberDashboard() {
     if (!user) return;
     try {
       const res = await fetch('/api/user/letters/outbox', {
-        headers: { 'x-user-id': user.id }
+        headers: {
+          'x-user-id': user.id,
+          'x-user-name': user.username
+        }
       });
       if (res.status === 401 || res.status === 403) {
         handleLogout();
@@ -110,7 +113,10 @@ export default function MemberDashboard() {
     if (!user) return;
     try {
       const res = await fetch('/api/user/letters/inbox', {
-        headers: { 'x-user-id': user.id }
+        headers: {
+          'x-user-id': user.id,
+          'x-user-name': user.username
+        }
       });
       if (res.status === 401 || res.status === 403) {
         handleLogout();
@@ -456,14 +462,25 @@ export default function MemberDashboard() {
                       className={`p-5 rounded-2xl border space-y-4 flex flex-col justify-between ${cardCls}`}
                     >
                       <div>
-                        <div className="flex items-center justify-between mb-2.5">
+                        <div className="flex items-center justify-between gap-1 mb-2.5">
                           <span className="text-xs font-serif font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1">
                             <span>{themeInfo.emoji}</span>
                             <span>{themeInfo.name}</span>
                           </span>
-                          <span className={`text-[10px] font-mono ${isDarkMode ? 'text-neutral-400' : 'text-stone-500'}`}>
-                            {new Date(letter.createdAt).toLocaleDateString('vi-VN')}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                            {letter.senderRole === 'admin' || letter.senderUsername === 'admin' || letter.senderUsername === 'tiendat' || letter.isBroadcast ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-serif font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-400/30">
+                                👑 Từ Admin (Toàn hệ thống)
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-400/30">
+                                ✉️ Gửi riêng cho bạn
+                              </span>
+                            )}
+                            <span className={`text-[10px] font-mono ${isDarkMode ? 'text-neutral-400' : 'text-stone-500'}`}>
+                              {new Date(letter.createdAt).toLocaleDateString('vi-VN')}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-2">

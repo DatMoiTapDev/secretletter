@@ -206,7 +206,11 @@ export default function AdminDashboard() {
       }
       const result = await res.json();
       if (result.success) {
-        setUsers(result.data || []);
+        // Chỉ hiển thị thành viên thường, không hiện tài khoản admin
+        const memberOnly = (result.data || []).filter(
+          (u) => u.role !== 'admin' && u.username !== 'admin' && u.username !== 'tiendat'
+        );
+        setUsers(memberOnly);
       }
     } catch (err) {
       console.error('Lỗi tải danh sách thành viên:', err);
@@ -1156,7 +1160,7 @@ export default function AdminDashboard() {
                   <span>Danh Sách Tài Khoản Thành Viên ({users.length})</span>
                 </h2>
                 <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-neutral-400' : 'text-stone-600'}`}>
-                  Admin cấp tài khoản để người dùng đăng nhập vào Dashboard riêng gửi thư qua lại độc lập
+                  Cấp tài khoản cho thành viên gửi nhận thư riêng biệt. Thông tin tài khoản quản trị tối cao của Admin được bảo mật riêng tư tuyệt đối.
                 </p>
               </div>
 

@@ -54,9 +54,24 @@ router.get('/outbox', (req, res) => {
  */
 router.get('/inbox', (req, res) => {
   const allLetters = getAllLetters();
-  const myInbox = allLetters.filter(
-    (l) => l.recipientUsername && l.recipientUsername.toLowerCase() === req.user.username.toLowerCase()
-  );
+  const myInbox = allLetters.filter((l) => {
+    // Không hiển thị thư do chính mình gửi
+    const isMine = l.senderId === req.user.id || (l.senderUsername && l.senderUsername.toLowerCase() === req.user.username.toLowerCase());
+    if (isMine) return false;
+
+    // 1. Thư của admin mặc định gửi đến tất cả các tài khoản
+    const isAdminLetter = l.senderRole === 'admin' ||
+                          l.senderUsername === 'admin' ||
+                          l.senderUsername === 'tiendat' ||
+                          l.senderId === 'usr_tiendat_root' ||
+                          l.isBroadcast === true;
+    if (isAdminLetter) return true;
+
+    // 2. Thư do thành viên khác gửi đích danh cho tài khoản này
+    const isSentToMe = (l.recipientUsername && l.recipientUsername.toLowerCase() === req.user.username.toLowerCase()) ||
+                       (l.recipientId && l.recipientId === req.user.id);
+    return Boolean(isSentToMe);
+  });
 
   const sanitized = myInbox.map(({ passwordHash, ...rest }) => rest);
   res.json({ success: true, data: sanitized });

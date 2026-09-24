@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   Save,
@@ -30,6 +30,7 @@ import ShareModal from '../components/ShareModal';
 export default function AdminEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const isEditing = Boolean(id);
   const [adminToken, setAdminToken] = useState(() => localStorage.getItem('admin_token') || '');
   const [currentUser, setCurrentUser] = useState(() => {
@@ -40,7 +41,8 @@ export default function AdminEditor() {
     }
   });
 
-  const isMemberMode = !adminToken && Boolean(currentUser);
+  // Chế độ thành viên nếu đang ở tuyến đường /dashboard/... hoặc nếu không phải admin
+  const isMemberMode = location.pathname.startsWith('/dashboard') || (!adminToken && Boolean(currentUser));
   const [createdLetter, setCreatedLetter] = useState(null);
 
   // Chế độ Nền Sáng / Nền Tối & Âm Lượng
@@ -78,6 +80,8 @@ export default function AdminEditor() {
   const [formData, setFormData] = useState({
     slug: '',
     recipientName: '',
+    recipientUsername: '',
+    isBroadcast: true,
     title: '',
     introQuote: 'Có một vài điều mình muốn bạn đọc thật chậm...',
     theme: 'tet',
@@ -134,6 +138,8 @@ export default function AdminEditor() {
             setFormData({
               slug: d.slug || d.id,
               recipientName: d.recipientName || '',
+              recipientUsername: d.recipientUsername || '',
+              isBroadcast: d.isBroadcast !== false,
               title: d.title || '',
               introQuote: d.introQuote || '',
               theme: d.theme || 'tet',
@@ -152,7 +158,7 @@ export default function AdminEditor() {
         })
         .catch((err) => console.error('Lỗi tải thư:', err));
     }
-  }, [id, isEditing, adminToken, navigate]);
+  }, [id, isEditing, adminToken, currentUser, navigate]);
 
   // Dừng nhạc khi unmount
   useEffect(() => {
@@ -175,6 +181,13 @@ export default function AdminEditor() {
 
     const payload = {
       ...formData,
+      senderId: isMemberMode ? currentUser?.id : 'usr_tiendat_root',
+      senderUsername: isMemberMode ? currentUser?.username : 'admin',
+      senderName: isMemberMode ? (currentUser?.displayName || currentUser?.username) : 'Quản Trị Viên',
+      senderAvatar: isMemberMode ? (currentUser?.avatar || '🌸') : '👑',
+      senderRole: isMemberMode ? 'member' : 'admin',
+      isBroadcast: isMemberMode ? false : (formData.isBroadcast !== false),
+      recipientUsername: formData.recipientUsername ? formData.recipientUsername.toLowerCase().trim() : '',
       expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : null
     };
 
@@ -185,12 +198,13 @@ export default function AdminEditor() {
         'Content-Type': 'application/json'
       };
 
-      if (adminToken) {
-        headers['x-admin-key'] = adminToken;
-      } else if (currentUser) {
-        headers['x-user-id'] = currentUser.id;
+      if (isMemberMode) {
         url = '/api/user/letters/compose';
         method = 'POST';
+        headers['x-user-id'] = currentUser?.id || 'usr_tiendat_root';
+        headers['x-user-name'] = currentUser?.username || 'member';
+      } else if (adminToken) {
+        headers['x-admin-key'] = adminToken;
       }
 
       const res = await fetch(url, {
@@ -636,6 +650,65 @@ export default function AdminEditor() {
                   />
                   <span className={hintCls}>Đường link người nhận truy cập: /letter/[slug]</span>
                 </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>
+                  Tài khoản người nhận (@username - Tùy chọn gửi vào Hòm Thư Đến)
+                </label>
+                {isMemberMode ? (
+                  <div>
+                    <input
+                      type="text"
+                      value={formData.recipientUsername}
+                      onChange={(e) => setFormData({ ...formData, recipientUsername: e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '') })}
+                      placeholder="VD: anhtu, haphuong... (để trống nếu chỉ muốn gửi qua link)"
+                      className={`${inputCls} font-mono`}
+                    />
+                    <span className={hintCls}>
+                      💌 Nhập @username của bạn bè để thư gửi thẳng vào hòm thư đến của bạn ấy! Nếu để trống, thư chỉ mở được bằng đường link riêng.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-2 mt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 text-xs font-serif">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="adminSendScope"
+                          checked={formData.isBroadcast !== false}
+                          onChange={() => setFormData({ ...formData, isBroadcast: true, recipientUsername: '' })}
+                          className="accent-amber-500"
+                        />
+                        <span className="font-bold text-amber-700 dark:text-amber-400">Gửi đến tất cả tài khoản thành viên (Mặc định)</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="adminSendScope"
+                          checked={formData.isBroadcast === false}
+                          onChange={() => setFormData({ ...formData, isBroadcast: false })}
+                          className="accent-amber-500"
+                        />
+                        <span>Gửi riêng cho 1 tài khoản (@username)</span>
+                      </label>
+                    </div>
+                    {formData.isBroadcast === false && (
+                      <input
+                        type="text"
+                        value={formData.recipientUsername}
+                        onChange={(e) => setFormData({ ...formData, recipientUsername: e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '') })}
+                        placeholder="Nhập username tài khoản nhận..."
+                        className={`${inputCls} font-mono`}
+                      />
+                    )}
+                    <span className={hintCls}>
+                      {formData.isBroadcast !== false
+                        ? '📢 Thư của Admin sẽ tự động xuất hiện trong Hòm Thư Đến (Inbox) của tất cả các tài khoản thành viên.'
+                        : 'Chỉ tài khoản được chỉ định mới nhận được thư này trong Inbox.'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div>

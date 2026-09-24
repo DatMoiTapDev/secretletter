@@ -23,7 +23,12 @@ router.get('/', (req, res) => {
     const users = getAllUsers();
     const letters = getAllLetters();
 
-    const result = users.map((u) => {
+    // TUYỆT ĐỐI BẢO MẬT: Loại trừ tài khoản quản trị tối cao khỏi danh sách thành viên
+    const members = users.filter(
+      (u) => u.role !== 'admin' && u.username !== 'admin' && u.username !== 'tiendat'
+    );
+
+    const result = members.map((u) => {
       const { passwordHash, ...safe } = u;
       const sentCount = letters.filter(
         (l) => l.senderId === u.id || l.senderUsername === u.username
@@ -60,6 +65,14 @@ router.post('/', async (req, res) => {
     });
   }
 
+  const clean = username.toLowerCase().trim();
+  if (clean === 'admin' || clean === 'tiendat') {
+    return res.status(400).json({
+      success: false,
+      message: 'Tên tài khoản này được bảo lưu cho quản trị viên tối cao.'
+    });
+  }
+
   if (username.length < 3) {
     return res.status(400).json({
       success: false,
@@ -91,6 +104,11 @@ router.put('/:id', async (req, res) => {
   const updates = req.body;
 
   try {
+    const target = getUserById(id);
+    if (target && (target.role === 'admin' || target.username === 'admin' || target.username === 'tiendat')) {
+      return res.status(403).json({ success: false, message: 'Không thể chỉnh sửa tài khoản quản trị tối cao.' });
+    }
+
     const updated = await updateUser(id, updates);
     if (!updated) {
       return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản.' });
@@ -110,6 +128,11 @@ router.put('/:id', async (req, res) => {
  */
 router.delete('/:id', (req, res) => {
   const { id } = req.params;
+  const target = getUserById(id);
+  if (target && (target.role === 'admin' || target.username === 'admin' || target.username === 'tiendat')) {
+    return res.status(403).json({ success: false, message: 'Không thể xóa tài khoản quản trị tối cao.' });
+  }
+
   const success = deleteUser(id);
   if (!success) {
     return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản để xóa.' });
