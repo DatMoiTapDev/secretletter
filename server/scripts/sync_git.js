@@ -9,16 +9,26 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectDir = path.resolve(__dirname, '..', '..');
 
+// Custom HTTP Client với timeout 10 phút để tránh bị timeout trên đường truyền quốc tế
+const customHttp = {
+  request(req) {
+    return http.request({
+      ...req,
+      fetchOptions: {
+        ...req.fetchOptions,
+        timeout: 600000 // 10 phút
+      }
+    });
+  }
+};
+
 async function syncGit() {
   const repoUrl = process.env.GITHUB_REPO_URL || process.argv[2];
   const token = process.env.GITHUB_TOKEN || process.argv[3];
   const commitMsg = process.argv[4] || `Update: ${new Date().toLocaleString('vi-VN')}`;
 
   if (!repoUrl || !token) {
-    console.error('❌ Thiếu cấu hình GitHub!');
-    console.log('Vui lòng thêm vào file .env:');
-    console.log('  GITHUB_REPO_URL=https://github.com/<username>/<repo>.git');
-    console.log('  GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx');
+    console.error('❌ Thiếu cấu hình GitHub trong .env!');
     process.exit(1);
   }
 
@@ -71,7 +81,7 @@ async function syncGit() {
     console.log('ℹ️ Không có thay đổi mới cần commit, chuẩn bị push...');
   }
 
-  // 3. Cấu hình remote
+  // 3. Cấu hình remote origin
   try {
     await git.addRemote({
       fs,
@@ -85,17 +95,26 @@ async function syncGit() {
   }
 
   // 4. Push lên GitHub
-  console.log('Đang đẩy lên nhánh main của GitHub...');
-  await git.push({
+  console.log('Đang đẩy dữ liệu lên GitHub (vui lòng đợi vài chục giây)...');
+  const result = await git.push({
     fs,
-    http,
+    http: customHttp,
     dir: projectDir,
     remote: 'origin',
     ref: 'main',
-    onAuth: () => ({ username: token, password: token })
+    force: true, // Cho phép khởi tạo đẩy đè nếu repo trên GitHub mới tạo
+    onAuth: () => ({ username: token, password: '' }),
+    onProgress: (p) => {
+      if (p.total) {
+        const percent = Math.round((p.loaded / p.total) * 100);
+        console.log(`  [${p.phase}] ${percent}% (${p.loaded}/${p.total})`);
+      } else {
+        console.log(`  [${p.phase}] ${p.loaded}`);
+      }
+    }
   });
 
-  console.log('🎉 ĐỒNG BỘ LÊN GITHUB THÀNH CÔNG RỰC RỠ!');
+  console.log('🎉 ĐỒNG BỘ LÊN GITHUB THÀNH CÔNG RỰC RỠ!', result);
 }
 
 syncGit().catch((err) => {

@@ -9,6 +9,10 @@ node_modules/
 .env.*.local
 MAT_KHAU_HE_THONG.md
 
+# Uploads & User Files
+uploads/*
+!uploads/.gitkeep
+
 # Production Build Output
 dist/
 dist-ssr/
