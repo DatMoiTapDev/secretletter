@@ -11,6 +11,7 @@
     "build": "vite build",
     "start": "node server/index.js",
     "push:git": "node server/scripts/sync_git.js",
+    "deploy:pages": "node server/scripts/deploy_gh_pages.js",
     "reset:clean": "node server/scripts/clean.js",
     "seed:demo": "node server/vibeSeed.js"
   },

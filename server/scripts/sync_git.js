@@ -9,7 +9,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectDir = path.resolve(__dirname, '..', '..');
 
-// Custom HTTP Client với timeout 10 phút để tránh bị timeout trên đường truyền quốc tế
 const customHttp = {
   request(req) {
     return http.request({
@@ -35,28 +34,24 @@ async function syncGit() {
   console.log('--- ĐỒNG BỘ MÃ NGUỒN LÊN GITHUB TỰ ĐỘNG ---');
   console.log(`Kho lưu trữ: ${repoUrl}`);
 
-  // 1. Quét và stage các tệp tin mới/chỉnh sửa
-  function getAllFiles(dirPath, arrayOfFiles = []) {
-    const files = fs.readdirSync(dirPath);
-    for (const file of files) {
-      if (file === '.git' || file === 'node_modules') continue;
-      const fullPath = path.join(dirPath, file);
-      if (fs.statSync(fullPath).isDirectory()) {
-        getAllFiles(fullPath, arrayOfFiles);
-      } else {
-        const relative = path.relative(projectDir, fullPath).replace(/\\/g, '/');
-        arrayOfFiles.push(relative);
-      }
-    }
-    return arrayOfFiles;
-  }
+  // 1. Quét trạng thái tệp tin và stage đầy đủ (thêm, sửa, xóa)
+  const matrix = await git.statusMatrix({
+    fs,
+    dir: projectDir,
+    filter: (f) => !f.startsWith('node_modules') && !f.startsWith('.git')
+  });
 
-  const allFiles = getAllFiles(projectDir);
   let stagedCount = 0;
-
-  for (const filepath of allFiles) {
+  for (const [filepath, head, workdir, stage] of matrix) {
     const ignored = await git.isIgnored({ fs, dir: projectDir, filepath });
-    if (!ignored) {
+    if (ignored) continue;
+
+    if (workdir === 0) {
+      // Tệp tin bị xóa
+      await git.remove({ fs, dir: projectDir, filepath });
+      stagedCount++;
+    } else if (workdir !== head || workdir !== stage) {
+      // Tệp tin thêm mới hoặc đã sửa đổi
       await git.add({ fs, dir: projectDir, filepath });
       stagedCount++;
     }
@@ -95,23 +90,15 @@ async function syncGit() {
   }
 
   // 4. Push lên GitHub
-  console.log('Đang đẩy dữ liệu lên GitHub (vui lòng đợi vài chục giây)...');
+  console.log('Đang đẩy dữ liệu lên GitHub...');
   const result = await git.push({
     fs,
     http: customHttp,
     dir: projectDir,
     remote: 'origin',
     ref: 'main',
-    force: true, // Cho phép khởi tạo đẩy đè nếu repo trên GitHub mới tạo
-    onAuth: () => ({ username: token, password: '' }),
-    onProgress: (p) => {
-      if (p.total) {
-        const percent = Math.round((p.loaded / p.total) * 100);
-        console.log(`  [${p.phase}] ${percent}% (${p.loaded}/${p.total})`);
-      } else {
-        console.log(`  [${p.phase}] ${p.loaded}`);
-      }
-    }
+    force: true,
+    onAuth: () => ({ username: token, password: '' })
   });
 
   console.log('🎉 ĐỒNG BỘ LÊN GITHUB THÀNH CÔNG RỰC RỠ!', result);
