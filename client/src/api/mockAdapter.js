@@ -182,11 +182,16 @@ export function setupGitHubPagesMock() {
       const users = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
 
       if (method === 'GET') {
-        return jsonRes(200, { success: true, data: users });
+        // TUYỆT ĐỐI BẢO MẬT: Loại trừ tài khoản quản trị viên tối cao khỏi danh sách phân quyền
+        const members = users.filter(u => u.role !== 'admin' && u.username !== 'admin' && u.username !== 'tiendat');
+        return jsonRes(200, { success: true, data: members });
       }
 
       if (method === 'POST') {
         const cleanUsername = body.username?.toLowerCase()?.trim();
+        if (cleanUsername === 'admin' || cleanUsername === 'tiendat') {
+          return jsonRes(400, { success: false, message: 'Tên tài khoản này được bảo lưu cho quản trị viên.' });
+        }
         if (users.some(u => u.username.toLowerCase() === cleanUsername)) {
           return jsonRes(400, { success: false, message: 'Tên tài khoản này đã tồn tại.' });
         }
@@ -209,6 +214,9 @@ export function setupGitHubPagesMock() {
         const id = apiPath.split('/').pop();
         const index = users.findIndex(u => u.id === id);
         if (index !== -1) {
+          if (users[index].role === 'admin' || users[index].username === 'admin' || users[index].username === 'tiendat') {
+            return jsonRes(403, { success: false, message: 'Không thể chỉnh sửa tài khoản quản trị tối cao.' });
+          }
           const updated = { ...users[index] };
           if (body.newPassword) {
             updated.initialPassword = body.newPassword;
@@ -225,6 +233,10 @@ export function setupGitHubPagesMock() {
 
       if (method === 'DELETE') {
         const id = apiPath.split('/').pop();
+        const target = users.find(u => u.id === id);
+        if (target && (target.role === 'admin' || target.username === 'admin' || target.username === 'tiendat')) {
+          return jsonRes(403, { success: false, message: 'Không thể xóa tài khoản quản trị tối cao.' });
+        }
         const filtered = users.filter(u => u.id !== id);
         localStorage.setItem('gh_mock_users', JSON.stringify(filtered));
         return jsonRes(200, { success: true, message: 'Đã xóa tài khoản.' });
@@ -237,34 +249,75 @@ export function setupGitHubPagesMock() {
     // 4.1. Soạn thư thành viên (/api/user/letters/compose)
     if (apiPath === '/api/user/letters/compose') {
       const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+      const userId = init.headers?.['x-user-id'] || body.senderId || 'usr_member';
+      const userName = init.headers?.['x-user-name'] || body.senderUsername || 'member';
+
       const newLetter = {
         id: `letter-${Date.now()}`,
-        slug: `letter-${Date.now()}`,
-        senderId: init.headers?.['x-user-id'] || 'usr_tiendat_root',
-        senderUsername: 'member',
-        senderName: body.recipientName || 'Người gửi',
+        slug: body.slug || `letter-${Date.now()}`,
+        senderId: userId,
+        senderUsername: userName,
+        senderName: body.senderName || userName,
+        senderAvatar: body.senderAvatar || '🌸',
+        senderRole: 'member',
+        isBroadcast: false,
+        recipientUsername: body.recipientUsername ? body.recipientUsername.toLowerCase().trim() : '',
         ...body,
         openedCount: 0,
         createdAt: new Date().toISOString()
       };
       letters.unshift(newLetter);
       localStorage.setItem('gh_mock_letters', JSON.stringify(letters));
-      return jsonRes(201, { success: true, data: newLetter });
+      return jsonRes(201, { success: true, data: newLetter, letter: newLetter });
     }
 
     // 4.2. Thư đã gửi (/api/user/letters/outbox)
     if (apiPath === '/api/user/letters/outbox') {
       const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
       const userId = init.headers?.['x-user-id'];
-      const userLetters = userId
-        ? letters.filter(l => l.senderId === userId || !l.senderId)
-        : letters;
+      const userName = (init.headers?.['x-user-name'] || '').toLowerCase();
+
+      // CHỈ hiển thị các thư DO CHÍNH TÀI KHOẢN NÀY GỬI
+      const userLetters = letters.filter(l => {
+        if (userId && l.senderId === userId) return true;
+        if (userName && l.senderUsername && l.senderUsername.toLowerCase() === userName) return true;
+        return false;
+      });
       return jsonRes(200, { success: true, data: userLetters });
     }
 
     // 4.3. Thư nhận được (/api/user/letters/inbox)
     if (apiPath === '/api/user/letters/inbox') {
-      return jsonRes(200, { success: true, data: [] });
+      const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+      const userId = init.headers?.['x-user-id'];
+      const userName = (init.headers?.['x-user-name'] || '').toLowerCase();
+
+      const userInbox = letters.filter(l => {
+        // Loại trừ thư do chính mình gửi
+        const isMine = (userId && l.senderId === userId) ||
+                       (userName && l.senderUsername && l.senderUsername.toLowerCase() === userName);
+        if (isMine) return false;
+
+        // 1. CÁC THƯ CỦA ADMIN MẶC ĐỊNH GỬI ĐẾN TẤT CẢ CÁC TÀI KHOẢN!
+        const isAdminLetter = l.senderRole === 'admin' ||
+                              l.senderUsername === 'admin' ||
+                              l.senderUsername === 'tiendat' ||
+                              l.senderId === 'usr_tiendat_root' ||
+                              l.isBroadcast === true;
+        if (isAdminLetter) return true;
+
+        // 2. Thư của thành viên khác gửi đích danh cho tài khoản này (@username hoặc ID)
+        if (userName && l.recipientUsername && l.recipientUsername.toLowerCase() === userName) {
+          return true;
+        }
+        if (userId && l.recipientId && l.recipientId === userId) {
+          return true;
+        }
+
+        return false;
+      });
+
+      return jsonRes(200, { success: true, data: userInbox });
     }
 
     // 4.4. Metadata lá thư (/api/letters/:id/meta)
@@ -324,11 +377,18 @@ export function setupGitHubPagesMock() {
         return jsonRes(200, { success: true, data: letters, letters });
       }
 
-      // POST /api/letters (Tạo thư mới trong Creator Studio)
+      // POST /api/letters (Tạo thư mới trong Creator Studio - Admin)
       if (method === 'POST') {
         const newLetter = {
           id: `letter-${Date.now()}`,
           slug: body.slug || `letter-${Date.now()}`,
+          senderId: 'usr_tiendat_root',
+          senderUsername: 'admin',
+          senderName: 'Quản Trị Viên',
+          senderAvatar: '👑',
+          senderRole: 'admin',
+          isBroadcast: body.isBroadcast !== false,
+          recipientUsername: body.recipientUsername ? body.recipientUsername.toLowerCase().trim() : '',
           ...body,
           openedCount: 0,
           createdAt: new Date().toISOString()

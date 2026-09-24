@@ -68,6 +68,7 @@ export default function MemberLogin() {
           localStorage.setItem('member_user', JSON.stringify(data.user));
           navigate('/admin', { replace: true });
         } else {
+          localStorage.removeItem('admin_token');
           localStorage.setItem('member_token', data.token);
           localStorage.setItem('member_user', JSON.stringify(data.user));
           navigate('/dashboard', { replace: true });
