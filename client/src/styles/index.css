@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* 3D Envelope Perspective and Geometry */
+.perspective-1000 {
+  perspective: 1200px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+/* Realistic Wax Seal */
+.wax-seal {
+  background: radial-gradient(circle at 35% 35%, #b93333, #7a1515 70%, #4a0c0c);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.45),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.6);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wax-seal-gold {
+  background: radial-gradient(circle at 35% 35%, #f3d078, #b8861b 70%, #684805);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.45),
+    inset 0 2px 4px rgba(255, 255, 255, 0.4),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.wax-seal-navy {
+  background: radial-gradient(circle at 35% 35%, #3a5080, #1b2a4a 70%, #0d1526);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.45),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.wax-seal-rose {
+  background: radial-gradient(circle at 35% 35%, #db7b93, #a3485e 70%, #58212e);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.45),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.wax-seal-emerald {
+  background: radial-gradient(circle at 35% 35%, #2a6f57, #1c4a3a 70%, #0c261d);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.45),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.6);
+}
+
+/* Paper Textures */
+.paper-parchment {
+  background-color: #faf6ed;
+  background-image: radial-gradient(#d3c5aa 0.75px, transparent 0.75px), radial-gradient(#d3c5aa 0.75px, #faf6ed 0.75px);
+  background-size: 30px 30px;
+  background-position: 0 0, 15px 15px;
+  box-shadow: 
+    0 20px 40px -15px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(180, 160, 120, 0.25);
+}
+
+.paper-dark {
+  background-color: #12141a;
+  background-image: radial-gradient(#272b38 0.75px, transparent 0.75px);
+  background-size: 24px 24px;
+  box-shadow: 
+    0 20px 50px -15px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* Light Beam Radiation */
+@keyframes beamGlow {
+  0% {
+    opacity: 0;
+    transform: scale(0.6) translateY(20px);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.1) translateY(-10px);
+  }
+  100% {
+    opacity: 0.7;
+    transform: scale(1) translateY(0px);
+  }
+}
+
+.light-beam {
+  background: radial-gradient(ellipse at center, rgba(254, 240, 138, 0.6) 0%, rgba(253, 224, 71, 0.25) 45%, rgba(0, 0, 0, 0) 75%);
+  animation: beamGlow 1.5s ease-out forwards;
+}
+
+/* Polaroid Card Effect */
+.polaroid-card {
+  background: #ffffff;
+  padding: 12px 12px 28px 12px;
+  box-shadow: 
+    0 10px 25px -5px rgba(0, 0, 0, 0.35),
+    0 2px 6px -1px rgba(0, 0, 0, 0.15);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+}
+
+.polaroid-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 
+    0 20px 35px -5px rgba(0, 0, 0, 0.45),
+    0 6px 12px -2px rgba(0, 0, 0, 0.2);
+}
+
+/* Washi Tape Effect */
+.washi-tape {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-2deg);
+  width: 90px;
+  height: 24px;
+  background-color: rgba(250, 232, 195, 0.85);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  border-left: 2px dashed rgba(200, 180, 150, 0.5);
+  border-right: 2px dashed rgba(200, 180, 150, 0.5);
+  z-index: 10;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
