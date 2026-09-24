@@ -32,14 +32,14 @@ export default function LetterReader({
     : 'paper-parchment text-neutral-900 border-amber-900/15';
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 py-10 sm:py-16 select-text">
+    <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-6 sm:py-16 select-text">
       
       {/* KHỐI TRANG GIẤY LÁ THƯ (The Main Paper Sheet) */}
       <div 
-        className={`relative rounded-3xl p-6 sm:p-12 md:p-16 border shadow-2xl transition-colors duration-500 ${paperBgClass}`}
+        className={`relative rounded-3xl p-5 sm:p-12 md:p-16 border shadow-2xl transition-colors duration-500 ${paperBgClass}`}
       >
         {/* Họa tiết viền chỉ vàng tinh tế trên trang giấy */}
-        <div className="absolute inset-3 sm:inset-4 rounded-2xl border border-amber-500/20 pointer-events-none" />
+        <div className="absolute inset-2.5 sm:inset-4 rounded-2xl border border-amber-500/20 pointer-events-none" />
 
         {/* TIÊU ĐỀ LÁ THƯ VÀ THỜI GIAN */}
         <div className="text-center border-b border-amber-900/15 dark:border-white/10 pb-8 mb-10">

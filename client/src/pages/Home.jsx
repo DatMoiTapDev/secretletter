@@ -216,22 +216,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* NÚT CHUYỂN CHẾ ĐỘ XEM 2 MÀN HÌNH (MOBILE + LAPTOP) */}
-          <Link
-            to="/dual"
-            onClick={() => soundEngine.playClickSound()}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs font-sans transition-all cursor-pointer ${
-              isDarkMode
-                ? 'bg-white/10 hover:bg-white/20 text-neutral-200 hover:text-white border border-white/15'
-                : 'bg-white/80 hover:bg-white text-neutral-800 hover:text-neutral-950 border border-neutral-200 shadow-xs'
-            }`}
-            title="Xem giao diện đồng thời trên Điện thoại & Laptop"
-          >
-            <Smartphone size={13} className="text-amber-500" />
-            <Monitor size={13} className="text-sky-500 -ml-0.5" />
-            <span className="hidden sm:inline">2 Màn hình</span>
-          </Link>
-
           {/* Nút Hòm Thư Thành Viên (Dashboard / Gửi thư) */}
           <Link
             to="/dashboard"
@@ -244,7 +228,7 @@ export default function Home() {
             title="Đăng nhập tài khoản thành viên để gửi thư riêng"
           >
             <Mail size={14} />
-            <span className="hidden xs:inline">Gửi Thư</span>
+            <span>Gửi Thư</span>
           </Link>
 
           {/* Nút Creator Studio */}

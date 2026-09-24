@@ -144,14 +144,15 @@ export default function MultiTierLockFlow({
               onBackToThemes();
             }
           }}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-serif backdrop-blur-md transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-serif backdrop-blur-md transition-all cursor-pointer ${
             isDark
               ? 'bg-white/10 hover:bg-white/20 text-neutral-200 hover:text-white border border-white/15'
               : 'bg-white/85 hover:bg-white text-neutral-800 hover:text-neutral-950 border border-neutral-300 shadow-sm'
           }`}
         >
-          <ArrowLeft size={14} />
-          <span>{step === 2 && selectedKey ? 'Chọn chiếc khóa khác' : step === 2 ? 'Nhập lại tên' : 'Đổi chủ đề khác'}</span>
+          <ArrowLeft size={14} className="shrink-0" />
+          <span className="hidden xs:inline">{step === 2 && selectedKey ? 'Chọn chiếc khóa khác' : step === 2 ? 'Nhập lại tên' : 'Đổi chủ đề khác'}</span>
+          <span className="xs:hidden">{step === 2 && selectedKey ? 'Đổi khóa' : step === 2 ? 'Nhập lại' : 'Đổi chủ đề'}</span>
         </button>
 
         <div className="flex items-center gap-2">
@@ -168,7 +169,7 @@ export default function MultiTierLockFlow({
               title={isDark ? 'Chạm để sang Nền Sáng ☀️' : 'Chạm để sang Nền Tối 🌙'}
             >
               {isDark ? <Moon size={13} className="text-sky-300" /> : <Sun size={13} className="text-amber-500" />}
-              <span>{isDark ? 'Nền Tối' : 'Nền Sáng'}</span>
+              <span className="hidden xs:inline">{isDark ? 'Nền Tối' : 'Nền Sáng'}</span>
             </button>
           )}
 

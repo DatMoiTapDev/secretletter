@@ -15,8 +15,6 @@ import {
   Moon,
   Volume2,
   VolumeX,
-  Smartphone,
-  Monitor,
   ExternalLink,
   Sparkles,
   Lock,
@@ -241,19 +239,6 @@ export default function MemberDashboard() {
               {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
             </button>
 
-            {/* 2 MÀN HÌNH */}
-            <Link
-              to="/dual"
-              onClick={() => soundEngine.playClickSound()}
-              className={`inline-flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs font-sans transition-all ${
-                isDarkMode ? 'bg-neutral-900 text-neutral-300 border border-white/10' : 'bg-white text-stone-700 border border-neutral-300 shadow-xs'
-              }`}
-              title="Xem 2 màn hình"
-            >
-              <Smartphone size={13} className="text-amber-500" />
-              <Monitor size={13} className="text-sky-500" />
-            </Link>
-
             {/* TRANG CHỦ */}
             <Link
               to="/"
@@ -280,7 +265,7 @@ export default function MemberDashboard() {
         </header>
 
         {/* NÚT CHUYỂN TABS: HÒM THƯ ĐÃ GỬI & HÒM THƯ NHẬN ĐƯỢC */}
-        <div className={`flex items-center gap-3 border-b pb-3 ${
+        <div className={`flex items-center gap-2 sm:gap-3 border-b pb-3 ${
           isDarkMode ? 'border-white/10' : 'border-neutral-200'
         }`}>
           <button
@@ -289,7 +274,7 @@ export default function MemberDashboard() {
               soundEngine.playClickSound();
               setActiveTab('outbox');
             }}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-serif font-bold transition-all cursor-pointer ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2.5 rounded-xl text-xs font-serif font-bold transition-all cursor-pointer ${
               activeTab === 'outbox'
                 ? 'bg-amber-500 text-neutral-950 shadow-md'
                 : isDarkMode
@@ -297,7 +282,7 @@ export default function MemberDashboard() {
                   : 'bg-white text-neutral-600 hover:text-neutral-900 border border-neutral-200 shadow-xs'
             }`}
           >
-            <Send size={15} />
+            <Send size={14} className="shrink-0" />
             <span>Thư Đã Gửi ({outboxLetters.length})</span>
           </button>
 
@@ -307,7 +292,7 @@ export default function MemberDashboard() {
               soundEngine.playClickSound();
               setActiveTab('inbox');
             }}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-serif font-bold transition-all cursor-pointer ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2.5 rounded-xl text-xs font-serif font-bold transition-all cursor-pointer ${
               activeTab === 'inbox'
                 ? 'bg-amber-500 text-neutral-950 shadow-md'
                 : isDarkMode
@@ -315,8 +300,8 @@ export default function MemberDashboard() {
                   : 'bg-white text-neutral-600 hover:text-neutral-900 border border-neutral-200 shadow-xs'
             }`}
           >
-            <Inbox size={15} />
-            <span>Thư Nhận Được ({inboxLetters.length})</span>
+            <Inbox size={14} className="shrink-0" />
+            <span>Thư Đến ({inboxLetters.length})</span>
           </button>
         </div>
 

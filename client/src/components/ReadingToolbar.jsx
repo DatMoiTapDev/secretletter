@@ -36,7 +36,7 @@ export default function ReadingToolbar({
   };
 
   return (
-    <div className="fixed bottom-5 right-5 z-40">
+    <div className="fixed bottom-4 right-4 sm:bottom-5 sm:right-5 z-40 max-w-[calc(100vw-2rem)]">
       {/* NÚT MỞ THANH ĐIỀU KHIỂN */}
       {!isOpen ? (
         <div className="flex items-center gap-2">
@@ -65,7 +65,7 @@ export default function ReadingToolbar({
         </div>
       ) : (
         /* HỘP BẢNG ĐIỀU KHIỂN CHI TIẾT */
-        <div className="w-80 p-5 rounded-3xl bg-neutral-950/95 border border-white/15 text-white shadow-2xl backdrop-blur-xl animate-fade-in space-y-4">
+        <div className="w-[calc(100vw-2rem)] max-w-xs sm:w-80 p-4 sm:p-5 rounded-3xl bg-neutral-950/95 border border-white/15 text-white shadow-2xl backdrop-blur-xl animate-fade-in space-y-4">
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
             <span className="font-serif font-bold text-sm text-amber-300 flex items-center gap-1.5">
               <Settings2 size={16} />
