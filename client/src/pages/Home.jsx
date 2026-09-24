@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Sparkles,
   Shield,
+  ShieldCheck,
   ArrowLeft,
   Volume2,
   VolumeX,
   Sun,
   Moon,
-  Smartphone,
-  Monitor,
+  LogIn,
+  LogOut,
   Mail
 } from 'lucide-react';
 import { getTheme, THEME_LIST } from '../types/theme';
@@ -19,6 +20,7 @@ import MultiTierLockFlow from '../components/MultiTierLockFlow';
 import Envelope3D from '../components/Envelope3D';
 import LetterReader from '../components/LetterReader';
 import ReadingToolbar from '../components/ReadingToolbar';
+import UserAvatar from '../components/UserAvatar';
 import { soundEngine } from '../audio/soundEngine';
 
 export default function Home() {
@@ -38,6 +40,38 @@ export default function Home() {
   const [particlesActive, setParticlesActive] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(0.4);
+
+  // 5. Phiên đăng nhập người dùng hiện tại
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('member_user') || 'null');
+    } catch {
+      return null;
+    }
+  });
+  const [adminToken, setAdminToken] = useState(() => localStorage.getItem('admin_token') || '');
+
+  // TỰ ĐỘNG PHÁT NGẪU NHIÊN 1 TRONG 4 BÀI NHẠC Ở MÀN HÌNH CHỜ
+  useEffect(() => {
+    if (!selectedTheme && !unlockedLetter) {
+      soundEngine.playRandomTrack();
+
+      // Nếu trình duyệt chặn do chính sách autoplay, bắt tương tác chạm đầu tiên
+      const handleFirstInteraction = () => {
+        if (!soundEngine.isPlaying && !selectedTheme && !unlockedLetter) {
+          soundEngine.playRandomTrack();
+        }
+      };
+
+      window.addEventListener('pointerdown', handleFirstInteraction, { once: true });
+      window.addEventListener('keydown', handleFirstInteraction, { once: true });
+
+      return () => {
+        window.removeEventListener('pointerdown', handleFirstInteraction);
+        window.removeEventListener('keydown', handleFirstInteraction);
+      };
+    }
+  }, [selectedTheme, unlockedLetter]);
 
   // CHUYỂN ĐỔI CHẾ ĐỘ NỀN SÁNG / NỀN TỐI (TOUCH BUTTON)
   const handleToggleDarkMode = () => {
@@ -65,6 +99,15 @@ export default function Home() {
     setIsMuted(muted);
   };
 
+  const handleLogout = () => {
+    soundEngine.playClickSound();
+    localStorage.removeItem('member_token');
+    localStorage.removeItem('member_user');
+    localStorage.removeItem('admin_token');
+    setCurrentUser(null);
+    setAdminToken('');
+  };
+
   // KHI NGƯỜI DÙNG CHỌN CHỦ ĐỀ TỪ BONG BÓNG
   const handleSelectTheme = (theme) => {
     setSelectedTheme(theme);
@@ -90,10 +133,10 @@ export default function Home() {
   // QUAY LẠI MÀN HÌNH BONG BÓNG CHÍNH
   const handleBackToMainBubbles = () => {
     soundEngine.playClickSound();
-    soundEngine.stopBackgroundMusic();
     setSelectedTheme(null);
     setUnlockedLetter(null);
     setIsAnimationDone(false);
+    soundEngine.playRandomTrack();
   };
 
   // QUAY LẠI DANH SÁCH CHIẾC KHÓA
@@ -216,35 +259,67 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Nút Hòm Thư Thành Viên (Dashboard / Gửi thư) */}
-          <Link
-            to="/dashboard"
-            onClick={() => soundEngine.playClickSound()}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-serif font-bold transition-all shadow-xs cursor-pointer ${
-              isDarkMode
-                ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40'
-                : 'bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-xs'
-            }`}
-            title="Đăng nhập tài khoản thành viên để gửi thư riêng"
-          >
-            <Mail size={14} />
-            <span>Gửi Thư</span>
-          </Link>
+          {/* CỔNG ĐĂNG NHẬP / PROFILE NGƯỜI DÙNG */}
+          {!currentUser && !adminToken ? (
+            <Link
+              to="/login"
+              onClick={() => soundEngine.playClickSound()}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-serif font-bold transition-all shadow-xs cursor-pointer ${
+                isDarkMode
+                  ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40'
+                  : 'bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-xs'
+              }`}
+              title="Đăng nhập tài khoản"
+            >
+              <LogIn size={14} />
+              <span>Đăng Nhập</span>
+            </Link>
+          ) : (
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {adminToken || currentUser?.role === 'admin' ? (
+                <Link
+                  to="/admin"
+                  onClick={() => soundEngine.playClickSound()}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-serif font-bold transition-all ${
+                    isDarkMode
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                      : 'bg-amber-500 text-neutral-950 shadow-xs'
+                  }`}
+                  title="Vào bảng quản trị Admin"
+                >
+                  <ShieldCheck size={14} />
+                  <span>Quản Trị</span>
+                </Link>
+              ) : (
+                <Link
+                  to="/dashboard"
+                  onClick={() => soundEngine.playClickSound()}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-serif font-bold transition-all ${
+                    isDarkMode
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                      : 'bg-amber-500 text-neutral-950 shadow-xs'
+                  }`}
+                  title="Vào hòm thư cá nhân"
+                >
+                  <UserAvatar avatar={currentUser?.avatar} size="sm" />
+                  <span className="hidden xs:inline">{currentUser?.displayName || currentUser?.username}</span>
+                </Link>
+              )}
 
-          {/* Nút Creator Studio */}
-          <Link
-            to="/admin"
-            onClick={() => soundEngine.playClickSound()}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs font-sans transition-all ${
-              isDarkMode
-                ? 'bg-white/10 hover:bg-white/20 text-neutral-200 hover:text-white border border-white/15'
-                : 'bg-white/80 hover:bg-white text-neutral-800 hover:text-neutral-950 border border-neutral-200 shadow-xs'
-            }`}
-            title="Bảng quản trị"
-          >
-            <Shield size={13} className={isDarkMode ? 'text-amber-400' : 'text-amber-600'} />
-            <span className="hidden sm:inline">Admin</span>
-          </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className={`p-1.5 sm:p-2 rounded-xl border transition-colors cursor-pointer ${
+                  isDarkMode
+                    ? 'border-white/10 text-neutral-400 hover:text-white hover:bg-white/10'
+                    : 'border-neutral-200 text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 shadow-xs'
+                }`}
+                title="Đăng xuất"
+              >
+                <LogOut size={13} />
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

@@ -282,6 +282,16 @@ class SoundEngine {
       this.htmlAudio.volume = this.masterVolume;
     }
   }
+
+  /**
+   * Phát ngẫu nhiên 1 trong 4 bài nhạc nền MP3 khi ở giao diện chờ
+   */
+  playRandomTrack() {
+    const trackKeys = Object.keys(TRACK_URLS);
+    const randomKey = trackKeys[Math.floor(Math.random() * trackKeys.length)];
+    this.startBackgroundMusic(randomKey);
+    return randomKey;
+  }
 }
 
 export const soundEngine = new SoundEngine();

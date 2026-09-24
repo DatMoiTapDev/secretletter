@@ -21,7 +21,7 @@ export default function App() {
       {/* Giao diện Thành viên: Đăng nhập & Không gian gửi nhận thư riêng */}
       <Route path="/login" element={<MemberLogin />} />
       <Route path="/dashboard" element={<MemberDashboard />} />
-      <Route path="/dashboard/compose" element={<MemberCompose />} />
+      <Route path="/dashboard/compose" element={<AdminEditor />} />
 
       {/* Creator Studio quản lý lá thư & Quản trị tài khoản Master Admin */}
       <Route path="/admin" element={<AdminDashboard />} />

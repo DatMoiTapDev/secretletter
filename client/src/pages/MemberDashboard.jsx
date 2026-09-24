@@ -23,7 +23,9 @@ import {
 } from 'lucide-react';
 import { THEMES } from '../types/theme';
 import ShareModal from '../components/ShareModal';
+import UserAvatar from '../components/UserAvatar';
 import { soundEngine } from '../audio/soundEngine';
+import { getAppUrl, copyToClipboard } from '../utils/url';
 
 export default function MemberDashboard() {
   const navigate = useNavigate();
@@ -148,10 +150,10 @@ export default function MemberDashboard() {
   };
 
   // Copy link nhanh
-  const handleCopyLink = (letter) => {
+  const handleCopyLink = async (letter) => {
     soundEngine.playClickSound();
-    const url = `${window.location.origin}/letter/${letter.slug || letter.id}`;
-    navigator.clipboard.writeText(url);
+    const url = getAppUrl(`letter/${letter.slug || letter.id}`);
+    await copyToClipboard(url);
     setCopiedId(letter.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -177,9 +179,7 @@ export default function MemberDashboard() {
         }`}>
           {/* USER INFO */}
           <div className="flex items-center gap-3.5">
-            <span className="text-4xl p-2 rounded-2xl bg-amber-500/10 border border-amber-500/20 shadow-xs">
-              {user.avatar || '✉️'}
-            </span>
+            <UserAvatar avatar={user.avatar} size="lg" />
             <div>
               <div className="flex items-center gap-2">
                 <h1 className={`text-xl sm:text-2xl font-serif font-bold ${
