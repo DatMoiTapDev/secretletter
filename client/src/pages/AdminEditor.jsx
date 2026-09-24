@@ -25,12 +25,23 @@ import {
 import { THEME_LIST, getTheme } from '../types/theme';
 import { PRESET_TRACKS, soundEngine } from '../audio/soundEngine';
 import RecipientView from './RecipientView';
+import ShareModal from '../components/ShareModal';
 
 export default function AdminEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEditing = Boolean(id);
-  const adminToken = localStorage.getItem('admin_token') || '';
+  const [adminToken, setAdminToken] = useState(() => localStorage.getItem('admin_token') || '');
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('member_user') || 'null');
+    } catch {
+      return null;
+    }
+  });
+
+  const isMemberMode = !adminToken && Boolean(currentUser);
+  const [createdLetter, setCreatedLetter] = useState(null);
 
   // Chế độ Nền Sáng / Nền Tối & Âm Lượng
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -108,19 +119,18 @@ export default function AdminEditor() {
 
   // Tải dữ liệu thư nếu đang ở chế độ chỉnh sửa
   useEffect(() => {
-    if (!adminToken) {
-      navigate('/admin');
+    if (!adminToken && !currentUser) {
+      navigate('/login', { replace: true });
       return;
     }
 
     if (isEditing) {
-      fetch(`/api/letters/${id}`, {
-        headers: { 'x-admin-key': adminToken }
-      })
+      const headers = adminToken ? { 'x-admin-key': adminToken } : { 'x-user-id': currentUser?.id };
+      fetch(`/api/letters/${id}`, { headers })
         .then((res) => res.json())
         .then((result) => {
-          if (result.success && result.data) {
-            const d = result.data;
+          if (result.success && (result.data || result.letter)) {
+            const d = result.data || result.letter;
             setFormData({
               slug: d.slug || d.id,
               recipientName: d.recipientName || '',
@@ -169,22 +179,30 @@ export default function AdminEditor() {
     };
 
     try {
-      const url = isEditing ? `/api/letters/${id}` : '/api/letters';
-      const method = isEditing ? 'PUT' : 'POST';
+      let url = isEditing ? `/api/letters/${id}` : '/api/letters';
+      let method = isEditing ? 'PUT' : 'POST';
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      if (adminToken) {
+        headers['x-admin-key'] = adminToken;
+      } else if (currentUser) {
+        headers['x-user-id'] = currentUser.id;
+        url = '/api/user/letters/compose';
+        method = 'POST';
+      }
 
       const res = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-key': adminToken
-        },
+        headers,
         body: JSON.stringify(payload)
       });
 
       const result = await res.json();
       if (res.ok && result.success) {
-        alert(isEditing ? 'Đã cập nhật lá thư thành công!' : 'Đã tạo lá thư mới thành công!');
-        navigate('/admin');
+        const saved = result.data || result.letter || payload;
+        setCreatedLetter(saved);
       } else {
         alert(result.message || 'Lỗi khi lưu thư.');
       }
@@ -220,9 +238,13 @@ export default function AdminEditor() {
     data.append('file', file);
 
     try {
+      const headers = {};
+      if (adminToken) headers['x-admin-key'] = adminToken;
+      if (currentUser) headers['x-user-id'] = currentUser.id;
+
       const res = await fetch('/api/upload', {
         method: 'POST',
-        headers: { 'x-admin-key': adminToken },
+        headers,
         body: data
       });
       const result = await res.json();
@@ -432,14 +454,23 @@ export default function AdminEditor() {
           isDarkMode ? 'border-white/10' : 'border-neutral-200'
         }`}>
           <div className="flex items-center gap-3">
-            <Link
-              to="/admin"
-              className={`p-2.5 rounded-xl transition-colors ${
+            <button
+              type="button"
+              onClick={() => {
+                soundEngine.playClickSound();
+                if (isMemberMode) {
+                  navigate('/dashboard');
+                } else {
+                  navigate('/admin');
+                }
+              }}
+              className={`p-2.5 rounded-xl transition-colors cursor-pointer ${
                 isDarkMode ? 'bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white' : 'bg-white hover:bg-neutral-100 text-neutral-700 hover:text-neutral-900 border border-neutral-300 shadow-xs'
               }`}
+              title={isMemberMode ? 'Về hòm thư cá nhân' : 'Về bảng quản trị'}
             >
               <ArrowLeft size={18} />
-            </Link>
+            </button>
             <div>
               <h1 className={`text-2xl font-serif font-bold ${
                 isDarkMode ? 'text-white' : 'text-neutral-900'
@@ -1216,6 +1247,22 @@ export default function AdminEditor() {
         </div>
 
       </div>
+
+      {/* CỬA SỔ CHIA SẺ & QR CODE KHI LƯU XONG */}
+      {createdLetter && (
+        <ShareModal
+          letter={createdLetter}
+          isOpen={Boolean(createdLetter)}
+          onClose={() => {
+            setCreatedLetter(null);
+            if (isMemberMode) {
+              navigate('/dashboard');
+            } else {
+              navigate('/admin');
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

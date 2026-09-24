@@ -30,11 +30,14 @@ import {
   Moon,
   Volume2,
   VolumeX,
-  ArrowLeft
+  ArrowLeft,
+  Upload
 } from 'lucide-react';
 import { THEMES, THEME_LIST } from '../types/theme';
 import ShareModal from '../components/ShareModal';
+import UserAvatar from '../components/UserAvatar';
 import { soundEngine } from '../audio/soundEngine';
+import { getAppUrl, copyToClipboard } from '../utils/url';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -112,6 +115,8 @@ export default function AdminDashboard() {
   const [resetTargetUser, setResetTargetUser] = useState(null);
   const [newPasswordInput, setNewPasswordInput] = useState('');
   const [copiedPassId, setCopiedPassId] = useState(null);
+  const [createdUserCreds, setCreatedUserCreds] = useState(null);
+  const [copiedCreatedCreds, setCopiedCreatedCreds] = useState(false);
 
   // Xác thực mã quản trị
   const handleLogin = async (e) => {
@@ -252,7 +257,7 @@ export default function AdminDashboard() {
   // Copy link nhanh
   const handleQuickCopyLink = (letter) => {
     soundEngine.playClickSound();
-    const url = `${window.location.origin}/letter/${letter.slug || letter.id}`;
+    const url = getAppUrl(`letter/${letter.slug || letter.id}`);
     navigator.clipboard.writeText(url);
     setCopiedId(letter.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -432,7 +437,15 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        const created = data.data || userForm;
         setUserModalOpen(false);
+        setCreatedUserCreds({
+          username: created.username,
+          password: created.initialPassword || userForm.password,
+          displayName: created.displayName || created.username,
+          avatar: created.avatar || '🌸',
+          loginUrl: getAppUrl('login')
+        });
         setUserForm({ username: '', password: '', displayName: '', avatar: '🌸' });
         fetchUsers();
       } else {
@@ -504,10 +517,10 @@ export default function AdminDashboard() {
   };
 
   // 5. Copy thông tin đăng nhập cấp cho người dùng
-  const handleCopyUserCreds = (user) => {
+  const handleCopyUserCreds = async (user) => {
     soundEngine.playClickSound();
-    const text = `💌 Thông tin tài khoản gửi thư bí mật:\n- Trang web: ${window.location.origin}/login\n- Tài khoản: ${user.username}\n- Mật khẩu: ${user.initialPassword || '(Đã đổi)'}`;
-    navigator.clipboard.writeText(text);
+    const text = `💌 Thông tin tài khoản gửi thư bí mật:\n- Trang web: ${getAppUrl('login')}\n- Tài khoản: ${user.username}\n- Mật khẩu: ${user.initialPassword || '(Đã đổi)'}`;
+    await copyToClipboard(text);
     setCopiedPassId(user.id);
     setTimeout(() => setCopiedPassId(null), 2500);
   };
@@ -1187,9 +1200,7 @@ export default function AdminDashboard() {
                         {/* HEADER USER */}
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <span className="text-3xl p-1.5 rounded-2xl bg-amber-500/10 border border-amber-500/20">
-                              {user.avatar || '👤'}
-                            </span>
+                            <UserAvatar avatar={user.avatar} size="md" />
                             <div>
                               <h4 className="font-serif font-bold text-base line-clamp-1">{user.displayName || user.username}</h4>
                               <p className="text-xs font-mono text-amber-700 dark:text-amber-400">@{user.username}</p>
@@ -1375,14 +1386,46 @@ export default function AdminDashboard() {
               </div>
 
               <div>
-                <label className={labelCls}>Chọn biểu tượng cảm xúc đại diện:</label>
-                <div className="flex flex-wrap gap-2 mt-1.5">
-                  {['🌸', '🌟', '💌', '🌿', '☕', '🦋', '🍓', '🧸', '🌙', '🎧'].map((emoji) => (
+                <label className={labelCls}>Hình đại diện (Upload ảnh hoặc chọn Icon):</label>
+                <div className="flex items-center gap-3 mt-2">
+                  <UserAvatar avatar={userForm.avatar} size="lg" />
+                  <div className="space-y-1">
+                    <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-serif font-semibold cursor-pointer transition-all ${
+                      isDarkMode
+                        ? 'bg-neutral-800 hover:bg-neutral-700 text-amber-300 border-white/10'
+                        : 'bg-stone-100 hover:bg-stone-200 text-amber-800 border-stone-300 shadow-xs'
+                    }`}>
+                      <Upload size={13} />
+                      <span>Tải ảnh từ máy</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              setUserForm({ ...userForm, avatar: reader.result });
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                    <p className={`text-[10px] ${isDarkMode ? 'text-neutral-500' : 'text-stone-500'}`}>
+                      Hỗ trợ tải ảnh riêng JPG, PNG, WebP... hoặc chọn emoji bên dưới
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mt-2.5">
+                  {['👑', '🌸', '🌟', '💌', '🌿', '☕', '🦋', '🍓', '🧸', '🌙', '🎧', '🐱'].map((emoji) => (
                     <button
                       key={emoji}
                       type="button"
                       onClick={() => setUserForm({ ...userForm, avatar: emoji })}
-                      className={`text-xl p-2 rounded-xl border transition-all cursor-pointer ${
+                      className={`text-lg p-1.5 rounded-xl border transition-all cursor-pointer ${
                         userForm.avatar === emoji
                           ? 'bg-amber-500/20 border-amber-500 scale-110 shadow-xs'
                           : isDarkMode ? 'bg-neutral-800 border-white/10 hover:bg-neutral-700' : 'bg-stone-50 border-stone-200 hover:bg-stone-100'
@@ -1416,6 +1459,88 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL THÔNG TIN TÀI KHOẢN VỪA TẠO ================= */}
+      {createdUserCreds && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCreatedUserCreds(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+        >
+          <div className={`max-w-md w-full p-6 rounded-3xl border space-y-4 shadow-2xl ${modalBoxCls}`}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-serif font-bold text-lg text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                <CheckCircle2 size={20} />
+                <span>Cấp Tài Khoản Thành Công!</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setCreatedUserCreds(null)}
+                className="text-neutral-400 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 p-3 rounded-2xl border bg-emerald-500/10 border-emerald-500/20">
+              <UserAvatar avatar={createdUserCreds.avatar} size="md" />
+              <div>
+                <h4 className="font-serif font-bold text-sm">{createdUserCreds.displayName}</h4>
+                <p className="text-xs font-mono text-amber-700 dark:text-amber-400">@{createdUserCreds.username}</p>
+              </div>
+            </div>
+
+            <div className={`p-4 rounded-2xl border space-y-2 text-xs font-mono ${subCardCls}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-stone-500 dark:text-neutral-400 shrink-0">Link đăng nhập:</span>
+                <span className="text-amber-600 dark:text-amber-400 font-bold truncate">
+                  {createdUserCreds.loginUrl}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-stone-500 dark:text-neutral-400">Tài khoản:</span>
+                <span className="font-bold">{createdUserCreds.username}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-stone-500 dark:text-neutral-400">Mật khẩu:</span>
+                <span className="font-bold text-rose-600 dark:text-rose-400">{createdUserCreds.password}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  soundEngine.playClickSound();
+                  const text = `💌 Thông tin tài khoản gửi thư bí mật:\n- Trang web: ${createdUserCreds.loginUrl}\n- Tài khoản: ${createdUserCreds.username}\n- Mật khẩu: ${createdUserCreds.password}`;
+                  await copyToClipboard(text);
+                  setCopiedCreatedCreds(true);
+                  setTimeout(() => setCopiedCreatedCreds(false), 2500);
+                }}
+                className={`w-full py-3 rounded-xl font-serif font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all ${
+                  copiedCreatedCreds
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-amber-500 hover:bg-amber-400 text-neutral-950'
+                }`}
+              >
+                {copiedCreatedCreds ? <Check size={16} /> : <Copy size={16} />}
+                <span>{copiedCreatedCreds ? 'Đã sao chép vào bộ nhớ tạm!' : 'Sao chép thông tin gửi cho bạn này'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCreatedUserCreds(null)}
+                className={`w-full py-2.5 rounded-xl font-serif text-xs cursor-pointer ${
+                  isDarkMode ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                }`}
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}

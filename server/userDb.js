@@ -75,7 +75,21 @@ export function getUserById(id) {
 export function getUserByUsername(username) {
   if (!username) return null;
   const users = getAllUsers();
-  return users.find((u) => u.username.toLowerCase() === username.toLowerCase().trim());
+  const clean = username.toLowerCase().trim();
+  const direct = users.find((u) => u.username.toLowerCase() === clean);
+  if (direct) return direct;
+
+  // Hỗ trợ bí danh 'admin' trỏ đến tài khoản quản trị
+  if (clean === 'admin') {
+    const rootAdmin = users.find((u) => u.role === 'admin' || u.username === 'tiendat');
+    if (rootAdmin) {
+      return {
+        ...rootAdmin,
+        username: 'admin'
+      };
+    }
+  }
+  return null;
 }
 
 /**

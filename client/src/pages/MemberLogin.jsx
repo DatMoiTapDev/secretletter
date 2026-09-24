@@ -22,10 +22,14 @@ export default function MemberLogin() {
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
-    // Nếu đã đăng nhập thì tự động chuyển vào dashboard
-    const token = localStorage.getItem('member_token');
+    // Nếu đã đăng nhập thì tự động chuyển hướng đúng trang
+    const adminToken = localStorage.getItem('admin_token');
     const user = localStorage.getItem('member_user');
-    if (token && user) {
+    if (adminToken) {
+      navigate('/admin', { replace: true });
+      return;
+    }
+    if (user) {
       navigate('/dashboard', { replace: true });
     }
   }, [navigate]);
@@ -58,9 +62,16 @@ export default function MemberLogin() {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        localStorage.setItem('member_token', data.token);
-        localStorage.setItem('member_user', JSON.stringify(data.user));
-        navigate('/dashboard', { replace: true });
+        const isAdmin = data.user.role === 'admin' || data.user.username === 'admin' || data.user.username === 'tiendat';
+        if (isAdmin) {
+          localStorage.setItem('admin_token', 'Tiendat@2006');
+          localStorage.setItem('member_user', JSON.stringify(data.user));
+          navigate('/admin', { replace: true });
+        } else {
+          localStorage.setItem('member_token', data.token);
+          localStorage.setItem('member_user', JSON.stringify(data.user));
+          navigate('/dashboard', { replace: true });
+        }
       } else {
         setError(data.message || 'Tài khoản hoặc mật khẩu không chính xác.');
       }
@@ -117,14 +128,14 @@ export default function MemberLogin() {
         {/* HEADER ICON & TITLE */}
         <div className="text-center space-y-2">
           <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-600 dark:text-amber-400">
-            <Mail size={32} />
+            <Lock size={28} />
           </div>
 
           <h1 className="text-2xl font-serif font-bold tracking-tight">
-            Đăng Nhập Gửi Thư
+            Đăng Nhập Hệ Thống
           </h1>
           <p className={`text-xs font-serif ${isDarkMode ? 'text-neutral-400' : 'text-stone-600'}`}>
-            Không gian riêng tư để gửi và nhận những lá thư kỹ thuật số
+            Đăng nhập tài khoản Quản trị (Admin) hoặc tài khoản Thành viên
           </p>
         </div>
 
@@ -177,32 +188,27 @@ export default function MemberLogin() {
           </button>
         </form>
 
-        {/* GHI CHÚ VỀ TÀI KHOẢN DO ADMIN CẤP */}
-        <div className={`p-4 rounded-2xl border text-xs space-y-1.5 ${
+        {/* HƯỚNG DẪN ĐĂNG NHẬP */}
+        <div className={`p-4 rounded-2xl border text-xs space-y-2 ${
           isDarkMode ? 'bg-neutral-800/60 border-white/5 text-neutral-400' : 'bg-stone-50 border-stone-200 text-stone-600'
         }`}>
           <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400">
             <Sparkles size={14} />
-            <span>Chính sách không gian riêng</span>
+            <span>Phân quyền tài khoản</span>
           </div>
-          <p className="font-serif leading-relaxed text-[11px]">
-            Tài khoản gửi thư do Quản trị viên (Admin) cấp riêng. Mỗi người có một không gian độc lập, không ai chạm đến thư của ai.
+          <div className="font-serif leading-relaxed text-[11px] space-y-1">
+            <div className="flex items-center justify-between">
+              <span>👑 <strong>Quản trị viên:</strong></span>
+              <span className="font-mono text-amber-600 dark:text-amber-400 font-bold">admin / Tiendat@2006</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>💌 <strong>Thành viên:</strong></span>
+              <span>Tài khoản được Admin cấp riêng</span>
+            </div>
+          </div>
+          <p className="font-serif text-[11px] opacity-80 pt-1 border-t border-neutral-200 dark:border-white/5">
+            Nếu chưa có tài khoản gửi thư, bạn vẫn có thể đọc thư bình thường tại trang chủ mà không cần đăng nhập.
           </p>
-          <p className="font-serif text-[11px] opacity-80">
-            Nếu bạn chưa được cấp tài khoản, bạn vẫn có thể đọc thư bình thường tại trang chủ mà không cần đăng nhập.
-          </p>
-        </div>
-
-        {/* FOOTER */}
-        <div className="text-center pt-2">
-          <Link
-            to="/admin"
-            className={`text-[11px] font-serif hover:underline ${
-              isDarkMode ? 'text-neutral-500 hover:text-neutral-400' : 'text-stone-400 hover:text-stone-600'
-            }`}
-          >
-            Quản trị viên hệ thống? Đăng nhập Creator Studio
-          </Link>
         </div>
 
       </div>

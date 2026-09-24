@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import { X, Copy, Check, Download, QrCode as QrIcon, Share2, Sparkles, ArrowLeft, ExternalLink } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
+import { getAppUrl, copyToClipboard } from '../utils/url';
 
 export default function ShareModal({ letter, isOpen, onClose }) {
   const [copiedLink, setCopiedLink] = useState(false);
@@ -12,9 +13,7 @@ export default function ShareModal({ letter, isOpen, onClose }) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
 
-  const letterUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/letter/${letter?.slug || letter?.id}`
-    : `https://.../letter/${letter?.slug || letter?.id}`;
+  const letterUrl = getAppUrl(`letter/${letter?.slug || letter?.id}`);
 
   const messageTemplate = `💌 Gửi ${letter?.recipientName || 'bạn'},\n\nMình đã chuẩn bị một lá thư đặc biệt dành riêng cho bạn.\n👉 Mở thư tại đây: ${letterUrl}\n\n(Chúc bạn có những phút giây thật ấm áp!)`;
 
@@ -52,16 +51,16 @@ export default function ShareModal({ letter, isOpen, onClose }) {
 
   if (!isOpen || !letter) return null;
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     soundEngine.playClickSound();
-    navigator.clipboard.writeText(letterUrl);
+    await copyToClipboard(letterUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const handleCopyMessage = () => {
+  const handleCopyMessage = async () => {
     soundEngine.playClickSound();
-    navigator.clipboard.writeText(messageTemplate);
+    await copyToClipboard(messageTemplate);
     setCopiedMessage(true);
     setTimeout(() => setCopiedMessage(false), 2000);
   };
