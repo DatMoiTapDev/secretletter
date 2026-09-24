@@ -8,11 +8,14 @@
  * - Tích hợp điều khiển âm lượng, chuyển đổi Mute, và Fade-in mượt mà
  */
 
+const RAW_BASE = import.meta.env.BASE_URL || '/';
+const AUDIO_BASE = RAW_BASE.endsWith('/') ? RAW_BASE : `${RAW_BASE}/`;
+
 export const TRACK_URLS = {
-  tet_binh_an: '/audio/tet_binh_an.mp3',
-  happy_birthday: '/audio/happy_birthday.mp3',
-  tu_khi_gap_em: '/audio/tu_khi_gap_em.mp3',
-  het_duyen_thi_di: '/audio/het_duyen_thi_di.mp3'
+  tet_binh_an: `${AUDIO_BASE}audio/tet_binh_an.mp3`,
+  happy_birthday: `${AUDIO_BASE}audio/happy_birthday.mp3`,
+  tu_khi_gap_em: `${AUDIO_BASE}audio/tu_khi_gap_em.mp3`,
+  het_duyen_thi_di: `${AUDIO_BASE}audio/het_duyen_thi_di.mp3`
 };
 
 export const PRESET_TRACKS = [
