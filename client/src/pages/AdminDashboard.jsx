@@ -299,12 +299,16 @@ export default function AdminDashboard() {
         })
       });
 
-      if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success !== false) {
         setRecipientModalOpen(false);
         setRecipientForm({ id: '', name: '', aliases: '' });
         fetchVibeStore();
+      } else {
+        alert(data.message || 'Lỗi khi lưu người nhận.');
       }
     } catch (err) {
+      console.error('Error saving recipient:', err);
       alert('Lỗi khi lưu người nhận.');
     }
   };
@@ -387,11 +391,15 @@ export default function AdminDashboard() {
         })
       });
 
-      if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success !== false) {
         setLetterModalOpen(false);
         fetchVibeStore();
+      } else {
+        alert(data.message || 'Lỗi khi lưu lá thư.');
       }
     } catch (err) {
+      console.error('Error saving vibe letter:', err);
       alert('Lỗi khi lưu lá thư.');
     }
   };
@@ -915,6 +923,27 @@ export default function AdminDashboard() {
                             type="button"
                             onClick={() => {
                               soundEngine.playClickSound();
+                              setRecipientForm({
+                                id: rec.id,
+                                name: rec.name,
+                                aliases: (rec.aliases || []).join(', ')
+                              });
+                              setRecipientModalOpen(true);
+                            }}
+                            className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                              isDarkMode
+                                ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300'
+                                : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                            }`}
+                            title="Sửa tên / từ khóa nhận diện"
+                          >
+                            <Edit size={14} />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              soundEngine.playClickSound();
                               setActiveRecipientForLetter(rec);
                               setLetterForm({
                                 id: '',
@@ -1000,16 +1029,45 @@ export default function AdminDashboard() {
                                   </div>
                                 </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteVibeLetter(rec.id, letObj.id, letObj.keyTitle)}
-                                  className={`p-1.5 transition-colors cursor-pointer ${
-                                    isDarkMode ? 'text-neutral-500 hover:text-rose-400' : 'text-stone-400 hover:text-rose-600'
-                                  }`}
-                                  title="Xóa khóa này"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      soundEngine.playClickSound();
+                                      setActiveRecipientForLetter(rec);
+                                      setLetterForm({
+                                        id: letObj.id,
+                                        keyTitle: letObj.keyTitle || '',
+                                        keyIcon: letObj.keyIcon || '🗝️',
+                                        letterPassword: letObj.letterPassword || '',
+                                        passwordHint: letObj.passwordHint || '',
+                                        title: letObj.title || '',
+                                        introQuote: letObj.introQuote || '',
+                                        greeting: letObj.content?.greeting || `Gửi ${rec.name} thân mến,`,
+                                        paragraphs: Array.isArray(letObj.content?.paragraphs) ? letObj.content.paragraphs.join('\n\n') : (letObj.content?.paragraphs || ''),
+                                        secretUnsaid: letObj.secretUnsaid?.content || '',
+                                        finalThought: letObj.finalThought?.content || ''
+                                      });
+                                      setLetterModalOpen(true);
+                                    }}
+                                    className={`p-1.5 transition-colors cursor-pointer ${
+                                      isDarkMode ? 'text-neutral-500 hover:text-amber-300' : 'text-stone-400 hover:text-amber-600'
+                                    }`}
+                                    title="Chỉnh sửa khóa thư này"
+                                  >
+                                    <Edit size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteVibeLetter(rec.id, letObj.id, letObj.keyTitle)}
+                                    className={`p-1.5 transition-colors cursor-pointer ${
+                                      isDarkMode ? 'text-neutral-500 hover:text-rose-400' : 'text-stone-400 hover:text-rose-600'
+                                    }`}
+                                    title="Xóa khóa này"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -1622,7 +1680,7 @@ export default function AdminDashboard() {
             }`}>
               <h3 className="font-serif font-bold text-lg text-amber-700 dark:text-amber-300 flex items-center gap-2">
                 <UserCheck size={18} />
-                <span>Thêm Người Nhận Mới ({THEMES[selectedVibeTheme]?.name})</span>
+                <span>{recipientForm.id ? 'Chỉnh Sửa Người Nhận' : 'Thêm Người Nhận Mới'} ({THEMES[selectedVibeTheme]?.name})</span>
               </h3>
               <button 
                 type="button" 
@@ -1678,7 +1736,7 @@ export default function AdminDashboard() {
                   type="submit"
                   className="w-2/3 py-2.5 rounded-xl bg-amber-500 text-neutral-950 font-serif font-bold text-xs hover:bg-amber-400 cursor-pointer shadow-md"
                 >
-                  Lưu Người Nhận
+                  {recipientForm.id ? 'Cập Nhật Người Nhận' : 'Lưu Người Nhận'}
                 </button>
               </div>
             </form>
@@ -1700,7 +1758,7 @@ export default function AdminDashboard() {
             }`}>
               <h3 className="font-serif font-bold text-lg text-amber-700 dark:text-amber-300 flex items-center gap-2">
                 <KeyRound size={18} />
-                <span>Thêm Khóa Thư Cho: {activeRecipientForLetter?.name}</span>
+                <span>{letterForm.id ? 'Chỉnh Sửa Khóa Thư Cho' : 'Thêm Khóa Thư Cho'}: {activeRecipientForLetter?.name}</span>
               </h3>
               <button 
                 type="button" 
@@ -1819,7 +1877,7 @@ export default function AdminDashboard() {
                   type="submit"
                   className="w-2/3 py-2.5 rounded-xl bg-amber-500 text-neutral-950 font-serif font-bold text-xs hover:bg-amber-400 cursor-pointer shadow-md"
                 >
-                  Lưu Chiếc Khóa & Thư
+                  {letterForm.id ? 'Cập Nhật Khóa & Thư' : 'Lưu Chiếc Khóa & Thư'}
                 </button>
               </div>
             </form>

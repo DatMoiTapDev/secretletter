@@ -15,6 +15,17 @@ const IS_GITHUB_PAGES = typeof window !== 'undefined' && (
   window.location.protocol === 'file:'
 );
 
+export function normalizeKey(str) {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/\s+/g, ' ');
+}
+
 export function setupGitHubPagesMock() {
   if (!IS_GITHUB_PAGES) return;
 
@@ -423,16 +434,31 @@ export function setupGitHubPagesMock() {
     if (apiPath.startsWith('/api/vibe-hub')) {
       const vibe = JSON.parse(localStorage.getItem('gh_mock_vibe') || '{}');
 
+      // Đảm bảo 4 chủ đề mặc định luôn tồn tại
+      const themeDefs = [
+        { id: 'tet', name: 'Tết', emoji: '🧧' },
+        { id: 'birthday', name: 'Sinh nhật', emoji: '🎂' },
+        { id: 'cute', name: 'Yêu', emoji: '💕' },
+        { id: 'emotional', name: 'Tâm tình', emoji: '🌙' }
+      ];
+      for (const t of themeDefs) {
+        if (!vibe[t.id]) {
+          vibe[t.id] = { id: t.id, name: t.name, emoji: t.emoji, recipients: [] };
+        } else {
+          vibe[t.id].id = t.id;
+          vibe[t.id].name = vibe[t.id].name || t.name;
+          vibe[t.id].emoji = vibe[t.id].emoji || t.emoji;
+          if (!Array.isArray(vibe[t.id].recipients)) {
+            vibe[t.id].recipients = [];
+          }
+        }
+      }
+
       // GET /api/vibe-hub/themes
       if (apiPath === '/api/vibe-hub/themes') {
         return jsonRes(200, {
           success: true,
-          themes: [
-            { id: 'tet', name: 'Tết', emoji: '🧧' },
-            { id: 'birthday', name: 'Sinh nhật', emoji: '🎂' },
-            { id: 'cute', name: 'Yêu', emoji: '💕' },
-            { id: 'emotional', name: 'Tâm tình', emoji: '🌙' }
-          ]
+          themes: themeDefs
         });
       }
 
@@ -441,115 +467,264 @@ export function setupGitHubPagesMock() {
         return jsonRes(200, { success: true, data: vibe });
       }
 
-      // POST /api/vibe-hub/admin/recipient (Thêm người nhận vào chủ đề)
+      // POST /api/vibe-hub/admin/recipient (Thêm/Sửa người nhận vào chủ đề)
       if (apiPath === '/api/vibe-hub/admin/recipient' && method === 'POST') {
-        const { themeId, name, note } = body;
-        if (!vibe[themeId]) vibe[themeId] = { id: themeId, recipients: [] };
-        const newRec = {
-          id: `rec_${Date.now()}`,
-          name: name.trim(),
-          note: note || '',
-          keys: []
-        };
-        vibe[themeId].recipients.push(newRec);
+        const themeId = body.themeId || 'tet';
+        const recData = body.recipient || body;
+        const name = (recData.name || '').trim();
+
+        if (!name) {
+          return jsonRes(400, { success: false, message: 'Vui lòng nhập tên người nhận.' });
+        }
+
+        if (!vibe[themeId]) {
+          vibe[themeId] = { id: themeId, name: themeId, emoji: '💌', recipients: [] };
+        }
+        if (!Array.isArray(vibe[themeId].recipients)) {
+          vibe[themeId].recipients = [];
+        }
+
+        const recId = recData.id || name.toLowerCase().trim().replace(/\s+/g, '-');
+        const rawAliases = recData.aliases || [name.toLowerCase().trim()];
+        const aliases = Array.isArray(rawAliases) ? rawAliases : [rawAliases];
+        if (!aliases.includes(name.toLowerCase().trim())) {
+          aliases.push(name.toLowerCase().trim());
+        }
+
+        const existingIdx = vibe[themeId].recipients.findIndex(
+          r => r.id === recId || r.name.toLowerCase().trim() === name.toLowerCase().trim()
+        );
+
+        let recObj;
+        if (existingIdx !== -1) {
+          recObj = {
+            ...vibe[themeId].recipients[existingIdx],
+            id: recId,
+            name,
+            aliases,
+            letters: vibe[themeId].recipients[existingIdx].letters || vibe[themeId].recipients[existingIdx].keys || []
+          };
+          vibe[themeId].recipients[existingIdx] = recObj;
+        } else {
+          recObj = {
+            id: recId,
+            name,
+            aliases,
+            letters: []
+          };
+          vibe[themeId].recipients.push(recObj);
+        }
+
         localStorage.setItem('gh_mock_vibe', JSON.stringify(vibe));
-        return jsonRes(201, { success: true, data: newRec });
+        return jsonRes(200, { success: true, data: recObj, recipient: recObj });
       }
 
-      // DELETE /api/vibe-hub/admin/recipient/:themeId/:recId
-      if (apiPath.startsWith('/api/vibe-hub/admin/recipient/') && method === 'DELETE') {
-        const parts = apiPath.split('/');
-        const recId = parts.pop();
-        const themeId = parts.pop();
-        if (vibe[themeId]) {
-          vibe[themeId].recipients = vibe[themeId].recipients.filter(r => r.id !== recId);
+      // DELETE /api/vibe-hub/admin/recipient
+      if (apiPath.startsWith('/api/vibe-hub/admin/recipient') && method === 'DELETE') {
+        let themeId = body?.themeId;
+        let recipientId = body?.recipientId;
+
+        if (!themeId || !recipientId) {
+          const parts = apiPath.split('/').filter(Boolean);
+          if (parts.length >= 5) {
+            recipientId = parts[parts.length - 1];
+            themeId = parts[parts.length - 2];
+          }
+        }
+
+        if (themeId && vibe[themeId] && Array.isArray(vibe[themeId].recipients)) {
+          vibe[themeId].recipients = vibe[themeId].recipients.filter(r => r.id !== recipientId);
           localStorage.setItem('gh_mock_vibe', JSON.stringify(vibe));
         }
         return jsonRes(200, { success: true, message: 'Đã xóa người nhận.' });
       }
 
-      // POST /api/vibe-hub/admin/key (Thêm chiếc khóa 2 cho người nhận)
-      if (apiPath === '/api/vibe-hub/admin/key' && method === 'POST') {
-        const { themeId, recipientId, keyTitle, keyPassword, passwordHint, keyIcon, letterData } = body;
+      // POST /api/vibe-hub/admin/letter hoặc /key (Thêm/Sửa lá thư Khóa 2)
+      if ((apiPath === '/api/vibe-hub/admin/letter' || apiPath === '/api/vibe-hub/admin/key') && method === 'POST') {
+        const themeId = body.themeId || 'tet';
+        const recipientId = body.recipientId;
+        const letter = body.letter || body;
+
         const theme = vibe[themeId];
-        if (theme) {
+        if (theme && Array.isArray(theme.recipients)) {
           const rec = theme.recipients.find(r => r.id === recipientId);
           if (rec) {
-            const newKey = {
-              id: `key_${Date.now()}`,
-              keyTitle: keyTitle || 'Lá Thư Bí Mật',
-              keyPassword: keyPassword || '',
-              passwordHint: passwordHint || '',
-              keyIcon: keyIcon || '🗝️',
-              letterData: letterData || {}
+            if (!Array.isArray(rec.letters)) {
+              rec.letters = rec.keys || [];
+            }
+            const letId = letter.id || `letter-${Date.now()}`;
+            const letObj = {
+              id: letId,
+              keyTitle: letter.keyTitle || letter.title || 'Lá Thư Bí Mật',
+              keyIcon: letter.keyIcon || '🗝️',
+              letterPassword: letter.letterPassword || letter.keyPassword || '',
+              passwordHint: letter.passwordHint || '',
+              title: letter.title || letter.keyTitle || 'Lá Thư Bí Mật',
+              introQuote: letter.introQuote || '',
+              content: letter.content || {
+                greeting: 'Gửi bạn,',
+                paragraphs: [letter.paragraph || 'Nội dung lá thư...'],
+                quotes: []
+              },
+              photos: letter.photos || [],
+              secretUnsaid: letter.secretUnsaid || { enabled: false },
+              finalThought: letter.finalThought || { enabled: false },
+              music: letter.music || { type: 'preset', track: 'dreamy_piano' }
             };
-            rec.keys.push(newKey);
+
+            const existingIdx = rec.letters.findIndex(l => l.id === letId);
+            if (existingIdx !== -1) {
+              rec.letters[existingIdx] = { ...rec.letters[existingIdx], ...letObj };
+            } else {
+              rec.letters.push(letObj);
+            }
+            rec.keys = rec.letters; // Đồng bộ ngược cho tương thích
+
             localStorage.setItem('gh_mock_vibe', JSON.stringify(vibe));
-            return jsonRes(201, { success: true, data: newKey });
+            return jsonRes(200, { success: true, data: letObj, letter: letObj });
           }
         }
         return jsonRes(400, { success: false, message: 'Không tìm thấy người nhận.' });
       }
 
-      // DELETE /api/vibe-hub/admin/key/:themeId/:recId/:keyId
-      if (apiPath.startsWith('/api/vibe-hub/admin/key/') && method === 'DELETE') {
-        const parts = apiPath.split('/');
-        const keyId = parts.pop();
-        const recId = parts.pop();
-        const themeId = parts.pop();
-        if (vibe[themeId]) {
-          const rec = vibe[themeId].recipients.find(r => r.id === recId);
+      // DELETE /api/vibe-hub/admin/letter hoặc /key
+      if ((apiPath.startsWith('/api/vibe-hub/admin/letter') || apiPath.startsWith('/api/vibe-hub/admin/key')) && method === 'DELETE') {
+        let themeId = body?.themeId;
+        let recipientId = body?.recipientId;
+        let letterId = body?.letterId || body?.keyId;
+
+        if (!themeId || !recipientId || !letterId) {
+          const parts = apiPath.split('/').filter(Boolean);
+          if (parts.length >= 6) {
+            letterId = parts[parts.length - 1];
+            recipientId = parts[parts.length - 2];
+            themeId = parts[parts.length - 3];
+          }
+        }
+
+        if (themeId && vibe[themeId] && Array.isArray(vibe[themeId].recipients)) {
+          const rec = vibe[themeId].recipients.find(r => r.id === recipientId);
           if (rec) {
-            rec.keys = rec.keys.filter(k => k.id !== keyId);
+            if (Array.isArray(rec.letters)) {
+              rec.letters = rec.letters.filter(l => l.id !== letterId);
+            }
+            if (Array.isArray(rec.keys)) {
+              rec.keys = rec.keys.filter(k => k.id !== letterId);
+            }
             localStorage.setItem('gh_mock_vibe', JSON.stringify(vibe));
           }
         }
-        return jsonRes(200, { success: true, message: 'Đã xóa chiếc khóa.' });
+        return jsonRes(200, { success: true, message: 'Đã xóa chiếc khóa thư.' });
       }
 
       // POST /api/vibe-hub/identify (Xác thực Khóa 1)
       if (apiPath === '/api/vibe-hub/identify' && method === 'POST') {
         const { themeId, identifier } = body;
-        const theme = vibe[themeId];
-        if (theme && theme.recipients) {
-          const clean = identifier?.toLowerCase()?.trim() || '';
-          const rec = theme.recipients.find(r => r.name.toLowerCase().trim() === clean);
-          if (rec) {
-            return jsonRes(200, {
-              success: true,
-              recipient: { id: rec.id, name: rec.name },
-              keys: (rec.keys || []).map(k => ({
-                id: k.id,
-                keyTitle: k.keyTitle,
-                keyIcon: k.keyIcon,
-                passwordHint: k.passwordHint
-              }))
-            });
-          }
+        if (!identifier || !identifier.trim()) {
+          return jsonRes(400, { success: false, message: 'Vui lòng nhập tên hoặc mật mã nhận diện.' });
         }
-        return jsonRes(404, { success: false, message: 'Chưa tìm thấy hòm thư với tên này... thử lại nhé 💌' });
-      }
+        const searchNorm = normalizeKey(identifier);
+        const searchExact = identifier.toLowerCase().trim();
 
-      // POST /api/vibe-hub/unlock (Mở Khóa 2)
-      if (apiPath === '/api/vibe-hub/unlock' && method === 'POST') {
-        const { themeId, recipientId, keyId, password } = body;
-        const theme = vibe[themeId];
-        if (theme && theme.recipients) {
-          const rec = theme.recipients.find(r => r.id === recipientId);
-          if (rec) {
-            const key = (rec.keys || []).find(k => k.id === keyId);
-            if (key) {
-              if (key.keyPassword && key.keyPassword.trim() !== password?.trim()) {
-                return jsonRes(401, { success: false, message: 'Mật khẩu chiếc khóa này chưa đúng 💌' });
+        let matchedRec = null;
+        const mergedLetters = [];
+        const seenLetterIds = new Set();
+
+        for (const [tId, themeData] of Object.entries(vibe)) {
+          if (!themeData.recipients || !Array.isArray(themeData.recipients)) continue;
+          for (const r of themeData.recipients) {
+            const matchId = r.id && (r.id.toLowerCase() === searchExact || normalizeKey(r.id) === searchNorm);
+            const matchName = r.name && (r.name.toLowerCase() === searchExact || normalizeKey(r.name) === searchNorm);
+            const matchAlias = Array.isArray(r.aliases) && r.aliases.some(alias => 
+              alias.toLowerCase() === searchExact || normalizeKey(alias) === searchNorm
+            );
+
+            if (matchId || matchName || matchAlias) {
+              if (!matchedRec) {
+                matchedRec = { id: r.id, name: r.name };
               }
-              return jsonRes(200, {
-                success: true,
-                letter: key.letterData || {}
+              const letters = r.letters || r.keys || [];
+              letters.forEach(l => {
+                if (!seenLetterIds.has(l.id)) {
+                  seenLetterIds.add(l.id);
+                  mergedLetters.push(l);
+                }
               });
             }
           }
         }
-        return jsonRes(404, { success: false, message: 'Không tìm thấy chiếc khóa này.' });
+
+        if (matchedRec) {
+          return jsonRes(200, {
+            success: true,
+            recipient: matchedRec,
+            keys: mergedLetters.map(l => ({
+              id: l.id,
+              keyTitle: l.keyTitle || l.title || 'Lá Thư Bí Mật',
+              keyIcon: l.keyIcon || '🗝️',
+              passwordHint: l.passwordHint || ''
+            }))
+          });
+        }
+
+        return jsonRes(401, { success: false, message: 'Hình như chưa đúng rồi... thử lại nhé 💌' });
+      }
+
+      // POST /api/vibe-hub/unlock-letter hoặc /unlock (Mở Khóa 2)
+      if ((apiPath === '/api/vibe-hub/unlock-letter' || apiPath === '/api/vibe-hub/unlock') && method === 'POST') {
+        const letterId = body.letterId || body.keyId;
+        const password = body.password;
+        const currentThemeId = body.currentThemeId || body.themeId;
+
+        if (!letterId || password === undefined) {
+          return jsonRes(400, { success: false, message: 'Thiếu thông tin mở khóa thư.' });
+        }
+
+        let targetLetter = null;
+        let targetRecipient = null;
+        let targetThemeId = null;
+
+        for (const [tId, themeData] of Object.entries(vibe)) {
+          if (!themeData.recipients || !Array.isArray(themeData.recipients)) continue;
+          for (const r of themeData.recipients) {
+            const letters = r.letters || r.keys || [];
+            const found = letters.find(l => l.id === letterId);
+            if (found) {
+              targetLetter = found;
+              targetRecipient = r;
+              targetThemeId = tId;
+              break;
+            }
+          }
+          if (targetLetter) break;
+        }
+
+        if (!targetLetter) {
+          return jsonRes(404, { success: false, message: 'Lá thư không tồn tại.' });
+        }
+
+        const passNorm = normalizeKey(password);
+        const correctPassNorm = normalizeKey(targetLetter.letterPassword || targetLetter.keyPassword || '');
+
+        if (passNorm !== correctPassNorm) {
+          return jsonRes(401, { success: false, message: 'Mật khẩu chiếc khóa này chưa đúng... thử lại nhé 💌' });
+        }
+
+        return jsonRes(200, {
+          success: true,
+          letter: {
+            id: targetLetter.id,
+            recipientName: targetRecipient.name,
+            title: targetLetter.title || targetLetter.keyTitle,
+            introQuote: targetLetter.introQuote,
+            theme: currentThemeId || targetThemeId || 'tet',
+            content: targetLetter.content,
+            photos: targetLetter.photos || [],
+            secretUnsaid: targetLetter.secretUnsaid,
+            finalThought: targetLetter.finalThought,
+            music: targetLetter.music || { type: 'preset', track: 'dreamy_piano' }
+          }
+        });
       }
     }
 
