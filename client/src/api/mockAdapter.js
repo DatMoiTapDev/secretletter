@@ -26,12 +26,222 @@ export function normalizeKey(str) {
     .replace(/\s+/g, ' ');
 }
 
+/**
+ * Chuẩn hóa mã hóa chuỗi UTF-8 an toàn sang Base64
+ */
+export function encodeBase64Utf8(str) {
+  return btoa(
+    encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+      return String.fromCharCode(parseInt(p1, 16));
+    })
+  );
+}
+
+/**
+ * Giải mã Base64 sang chuỗi UTF-8 tiếng Việt hoàn chỉnh
+ */
+export function decodeBase64Utf8(str) {
+  const binary = atob(str);
+  return decodeURIComponent(
+    Array.prototype.map.call(binary, (c) => {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join('')
+  );
+}
+
+/**
+ * Lấy toàn bộ dữ liệu hiện tại trong LocalStorage để đồng bộ
+ */
+export function getSyncPayload() {
+  const users = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
+  const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+  const vibe = JSON.parse(localStorage.getItem('gh_mock_vibe') || '{}');
+  return {
+    version: '1.0',
+    timestamp: new Date().toISOString(),
+    users,
+    letters,
+    vibe
+  };
+}
+
+/**
+ * Nhập dữ liệu đồng bộ và lưu vào LocalStorage
+ */
+export function importSyncPayload(data) {
+  if (!data || typeof data !== 'object') {
+    return { success: false, message: 'Dữ liệu không hợp lệ.' };
+  }
+
+  let importedUsers = 0;
+  let importedLetters = 0;
+
+  // 1. Nhập danh sách tài khoản
+  if (data.users && Array.isArray(data.users)) {
+    const curUsers = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
+    const userMap = new Map();
+    curUsers.forEach(u => userMap.set(u.username.toLowerCase(), u));
+    data.users.forEach(u => {
+      userMap.set(u.username.toLowerCase(), u);
+      importedUsers++;
+    });
+    localStorage.setItem('gh_mock_users', JSON.stringify(Array.from(userMap.values())));
+  }
+
+  // 2. Nhập danh sách lá thư
+  if (data.letters && Array.isArray(data.letters)) {
+    const curLetters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+    const letterMap = new Map();
+    curLetters.forEach(l => letterMap.set(l.id || l.slug, l));
+    data.letters.forEach(l => {
+      letterMap.set(l.id || l.slug, l);
+      importedLetters++;
+    });
+    localStorage.setItem('gh_mock_letters', JSON.stringify(Array.from(letterMap.values())));
+  }
+
+  // 3. Nhập dữ liệu Vibe Hub
+  if (data.vibe && typeof data.vibe === 'object') {
+    const curVibe = JSON.parse(localStorage.getItem('gh_mock_vibe') || '{}');
+    const mergedVibe = { ...curVibe };
+    for (const [themeId, themeData] of Object.entries(data.vibe)) {
+      if (!mergedVibe[themeId]) {
+        mergedVibe[themeId] = themeData;
+      } else {
+        const existingRecs = mergedVibe[themeId].recipients || [];
+        const recMap = new Map();
+        existingRecs.forEach(r => recMap.set(r.id || r.name, r));
+        (themeData.recipients || []).forEach(r => recMap.set(r.id || r.name, r));
+        mergedVibe[themeId].recipients = Array.from(recMap.values());
+      }
+    }
+    localStorage.setItem('gh_mock_vibe', JSON.stringify(mergedVibe));
+  }
+
+  return { success: true, importedUsers, importedLetters };
+}
+
+/**
+ * Sinh đường link đồng bộ chứa toàn bộ tài khoản và thư cơ bản
+ */
+export function generateSyncUrl() {
+  const payload = getSyncPayload();
+  const compactPayload = {
+    users: payload.users,
+    vibe: payload.vibe,
+    letters: payload.letters.map(l => ({
+      ...l,
+      photos: (l.photos || []).filter(p => !p?.url?.startsWith('data:') || p.url.length < 15000)
+    }))
+  };
+
+  const jsonStr = JSON.stringify(compactPayload);
+  const b64 = encodeBase64Utf8(jsonStr);
+
+  const origin = window.location.origin;
+  const basePath = import.meta.env.BASE_URL || '/';
+  const fullBase = `${origin}${basePath.endsWith('/') ? basePath : basePath + '/'}`;
+  return `${fullBase}?sync=${encodeURIComponent(b64)}`;
+}
+
+/**
+ * Kiểm tra và tự động nạp dữ liệu khi mở web qua link đồng bộ (?sync=...)
+ */
+export function checkAndApplyUrlSync() {
+  if (typeof window === 'undefined') return;
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const syncParam = urlParams.get('syncData') || urlParams.get('sync');
+    if (syncParam) {
+      let json = null;
+      try {
+        json = JSON.parse(decodeBase64Utf8(syncParam));
+      } catch {
+        json = JSON.parse(decodeURIComponent(syncParam));
+      }
+
+      if (json) {
+        const res = importSyncPayload(json);
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, cleanUrl);
+
+        sessionStorage.setItem(
+          'sync_toast_message',
+          `🎉 Đã đồng bộ thành công ${res.importedUsers} tài khoản từ máy tính sang điện thoại! Bạn có thể đăng nhập ngay.`
+        );
+      }
+    }
+  } catch (err) {
+    console.warn('Lỗi đọc dữ liệu đồng bộ URL:', err);
+  }
+}
+
+/**
+ * Đồng bộ với Firebase Realtime Database (nếu cấu hình URL)
+ */
+export async function syncWithCloudDb() {
+  const cloudUrl = localStorage.getItem('gh_cloud_db_url');
+  if (!cloudUrl) return;
+
+  try {
+    const res = await fetch(`${cloudUrl.replace(/\/$/, '')}/secretletter.json`);
+    if (res.ok) {
+      const cloudData = await res.json();
+      if (cloudData && typeof cloudData === 'object') {
+        importSyncPayload(cloudData);
+      }
+    }
+  } catch (err) {
+    console.warn('Lỗi đồng bộ đám mây:', err);
+  }
+}
+
+/**
+ * Đẩy dữ liệu mới nhất lên Cloud Database (nếu cấu hình)
+ */
+export function pushToCloudDb() {
+  const cloudUrl = localStorage.getItem('gh_cloud_db_url');
+  if (!cloudUrl) return;
+
+  try {
+    const payload = getSyncPayload();
+    fetch(`${cloudUrl.replace(/\/$/, '')}/secretletter.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...payload,
+        updatedAt: new Date().toISOString()
+      })
+    }).catch(() => {});
+  } catch {}
+}
+
 export function setupGitHubPagesMock() {
   if (!IS_GITHUB_PAGES) return;
 
   console.log('🌐 Đang chạy trên GitHub Pages tĩnh: Kích hoạt LocalStorage Adapter toàn diện cho /api');
 
-  // 1. Khởi tạo danh sách người dùng mẫu nếu chưa có
+  // 1. Kiểm tra tham số link đồng bộ từ thiết bị khác (?sync=...)
+  checkAndApplyUrlSync();
+
+  // 2. Kéo dữ liệu từ Cloud DB nếu có
+  syncWithCloudDb();
+
+  // 3. Tự động kéo seed-data.json từ bản build phân phối (nếu có)
+  try {
+    const basePath = import.meta.env.BASE_URL || '/';
+    const seedUrl = `${basePath.endsWith('/') ? basePath : basePath + '/'}seed-data.json`;
+    fetch(seedUrl)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((seed) => {
+        if (seed && typeof seed === 'object') {
+          importSyncPayload(seed);
+        }
+      })
+      .catch(() => {});
+  } catch {}
+
+  // 4. Khởi tạo danh sách người dùng mẫu nếu chưa có
   if (!localStorage.getItem('gh_mock_users')) {
     const initialUsers = [
       {
@@ -58,12 +268,12 @@ export function setupGitHubPagesMock() {
     localStorage.setItem('gh_mock_users', JSON.stringify(initialUsers));
   }
 
-  // 2. Khởi tạo danh sách thư nếu chưa có
+  // 4. Khởi tạo danh sách thư nếu chưa có
   if (!localStorage.getItem('gh_mock_letters')) {
     localStorage.setItem('gh_mock_letters', JSON.stringify([]));
   }
 
-  // 3. Khởi tạo dữ liệu Vibe Hub nếu chưa có
+  // 5. Khởi tạo dữ liệu Vibe Hub nếu chưa có
   if (!localStorage.getItem('gh_mock_vibe')) {
     localStorage.setItem('gh_mock_vibe', JSON.stringify({
       tet: { id: 'tet', name: 'Tết', emoji: '🧧', recipients: [] },
@@ -72,6 +282,11 @@ export function setupGitHubPagesMock() {
       emotional: { id: 'emotional', name: 'Tâm tình', emoji: '🌙', recipients: [] }
     }));
   }
+
+  // 6. Lắng nghe sự kiện window focus để đồng bộ dữ liệu mới nhất
+  window.addEventListener('focus', () => {
+    syncWithCloudDb();
+  });
 
   const originalFetch = window.fetch;
 
@@ -218,6 +433,7 @@ export function setupGitHubPagesMock() {
         };
         users.unshift(newUser);
         localStorage.setItem('gh_mock_users', JSON.stringify(users));
+        pushToCloudDb();
         return jsonRes(201, { success: true, data: newUser });
       }
 
@@ -237,6 +453,7 @@ export function setupGitHubPagesMock() {
           if (body.avatar) updated.avatar = body.avatar;
           users[index] = updated;
           localStorage.setItem('gh_mock_users', JSON.stringify(users));
+          pushToCloudDb();
           return jsonRes(200, { success: true, data: updated });
         }
         return jsonRes(404, { success: false, message: 'Không tìm thấy tài khoản.' });
@@ -250,6 +467,7 @@ export function setupGitHubPagesMock() {
         }
         const filtered = users.filter(u => u.id !== id);
         localStorage.setItem('gh_mock_users', JSON.stringify(filtered));
+        pushToCloudDb();
         return jsonRes(200, { success: true, message: 'Đã xóa tài khoản.' });
       }
     }
@@ -279,6 +497,7 @@ export function setupGitHubPagesMock() {
       };
       letters.unshift(newLetter);
       localStorage.setItem('gh_mock_letters', JSON.stringify(letters));
+      pushToCloudDb();
       return jsonRes(201, { success: true, data: newLetter, letter: newLetter });
     }
 
@@ -406,6 +625,7 @@ export function setupGitHubPagesMock() {
         };
         letters.unshift(newLetter);
         localStorage.setItem('gh_mock_letters', JSON.stringify(letters));
+        pushToCloudDb();
         return jsonRes(201, { success: true, data: newLetter, letter: newLetter });
       }
 
@@ -415,6 +635,7 @@ export function setupGitHubPagesMock() {
         if (idx !== -1) {
           letters[idx] = { ...letters[idx], ...body, updatedAt: new Date().toISOString() };
           localStorage.setItem('gh_mock_letters', JSON.stringify(letters));
+          pushToCloudDb();
           return jsonRes(200, { success: true, data: letters[idx], letter: letters[idx] });
         }
         return jsonRes(404, { success: false, message: 'Không tìm thấy thư.' });
@@ -424,6 +645,7 @@ export function setupGitHubPagesMock() {
       if (method === 'DELETE' && id) {
         const filtered = letters.filter(l => l.id !== id && l.slug !== id);
         localStorage.setItem('gh_mock_letters', JSON.stringify(filtered));
+        pushToCloudDb();
         return jsonRes(200, { success: true, message: 'Đã xóa lá thư.' });
       }
     }
@@ -516,6 +738,7 @@ export function setupGitHubPagesMock() {
         }
 
         localStorage.setItem('gh_mock_vibe', JSON.stringify(vibe));
+        pushToCloudDb();
         return jsonRes(200, { success: true, data: recObj, recipient: recObj });
       }
 
@@ -535,6 +758,7 @@ export function setupGitHubPagesMock() {
         if (themeId && vibe[themeId] && Array.isArray(vibe[themeId].recipients)) {
           vibe[themeId].recipients = vibe[themeId].recipients.filter(r => r.id !== recipientId);
           localStorage.setItem('gh_mock_vibe', JSON.stringify(vibe));
+          pushToCloudDb();
         }
         return jsonRes(200, { success: true, message: 'Đã xóa người nhận.' });
       }
@@ -581,6 +805,7 @@ export function setupGitHubPagesMock() {
             rec.keys = rec.letters; // Đồng bộ ngược cho tương thích
 
             localStorage.setItem('gh_mock_vibe', JSON.stringify(vibe));
+            pushToCloudDb();
             return jsonRes(200, { success: true, data: letObj, letter: letObj });
           }
         }
@@ -612,6 +837,7 @@ export function setupGitHubPagesMock() {
               rec.keys = rec.keys.filter(k => k.id !== letterId);
             }
             localStorage.setItem('gh_mock_vibe', JSON.stringify(vibe));
+            pushToCloudDb();
           }
         }
         return jsonRes(200, { success: true, message: 'Đã xóa chiếc khóa thư.' });
