@@ -31,10 +31,13 @@ import {
   Volume2,
   VolumeX,
   ArrowLeft,
-  Upload
+  Upload,
+  Smartphone,
+  QrCode
 } from 'lucide-react';
 import { THEMES, THEME_LIST } from '../types/theme';
 import ShareModal from '../components/ShareModal';
+import DeviceSyncModal from '../components/DeviceSyncModal';
 import UserAvatar from '../components/UserAvatar';
 import { soundEngine } from '../audio/soundEngine';
 import { getAppUrl, copyToClipboard } from '../utils/url';
@@ -117,6 +120,9 @@ export default function AdminDashboard() {
   const [copiedPassId, setCopiedPassId] = useState(null);
   const [createdUserCreds, setCreatedUserCreds] = useState(null);
   const [copiedCreatedCreds, setCopiedCreatedCreds] = useState(false);
+
+  // Modal Đồng Bộ Điện Thoại & Đám Mây
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
 
   // Xác thực mã quản trị
   const handleLogin = async (e) => {
@@ -707,6 +713,24 @@ export default function AdminDashboard() {
               </div>
             </div>
 
+            {/* NÚT ĐỒNG BỘ SANG ĐIỆN THOẠI */}
+            <button
+              type="button"
+              onClick={() => {
+                soundEngine.playClickSound();
+                setSyncModalOpen(true);
+              }}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-serif font-bold transition-all cursor-pointer shadow-xs ${
+                isDarkMode
+                  ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 animate-pulse'
+                  : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+              }`}
+              title="Đồng bộ tài khoản và thư sang điện thoại"
+            >
+              <Smartphone size={15} className="text-amber-500" />
+              <span>Đồng Bộ Sang ĐT</span>
+            </button>
+
             <Link
               to="/"
               target="_blank"
@@ -797,6 +821,24 @@ export default function AdminDashboard() {
             <Users size={15} className="shrink-0" />
             <span className="hidden sm:inline">3. Quản Trị Tài Khoản Thành Viên ({users.length})</span>
             <span className="sm:hidden">3. Thành Viên ({users.length})</span>
+          </button>
+
+          {/* TAB 4: ĐỒNG BỘ ĐIỆN THOẠI & ĐÁM MÂY */}
+          <button
+            type="button"
+            onClick={() => {
+              soundEngine.playClickSound();
+              setSyncModalOpen(true);
+            }}
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-serif font-bold transition-all cursor-pointer ${
+              isDarkMode
+                ? 'bg-neutral-900 text-amber-300 hover:text-white border border-amber-500/30'
+                : 'bg-white text-amber-800 hover:text-amber-900 border border-amber-300 shadow-xs'
+            }`}
+          >
+            <Smartphone size={15} className="shrink-0 text-amber-500" />
+            <span className="hidden sm:inline">4. 📱 Đồng Bộ Điện Thoại & Đám Mây</span>
+            <span className="sm:hidden">4. 📱 Đồng Bộ ĐT</span>
           </button>
         </div>
 
@@ -1890,6 +1932,13 @@ export default function AdminDashboard() {
         letter={selectedShareLetter}
         isOpen={Boolean(selectedShareLetter)}
         onClose={() => setSelectedShareLetter(null)}
+      />
+
+      {/* ================= MODAL ĐỒNG BỘ ĐIỆN THOẠI & ĐÁM MÂY ================= */}
+      <DeviceSyncModal
+        isOpen={syncModalOpen}
+        onClose={() => setSyncModalOpen(false)}
+        isDarkMode={isDarkMode}
       />
 
     </div>

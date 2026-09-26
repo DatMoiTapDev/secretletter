@@ -45,10 +45,23 @@ async function deployGhPages() {
     env: { ...process.env, GITHUB_PAGES: 'true', VITE_BASE_PATH: '/secretletter/' }
   });
 
-  // 2. Tạo file 404.html và .nojekyll trong dist
-  console.log('2. Tạo file 404.html và .nojekyll...');
+  // 2. Tạo file 404.html, .nojekyll và seed-data.json trong dist
+  console.log('2. Tạo file 404.html, .nojekyll và seed-data.json...');
   fs.copyFileSync(path.join(distDir, 'index.html'), path.join(distDir, '404.html'));
   fs.writeFileSync(path.join(distDir, '.nojekyll'), '', 'utf-8');
+
+  // Đóng gói data hiện có làm seed-data.json để các thiết bị mới tự động nhận
+  const dataDir = path.join(projectDir, 'data');
+  const seedUsersPath = path.join(dataDir, 'users.json');
+  const seedLettersPath = path.join(dataDir, 'letters.json');
+  const seedVibePath = path.join(dataDir, 'vibeStore.json');
+
+  const seedPayload = {
+    users: fs.existsSync(seedUsersPath) ? JSON.parse(fs.readFileSync(seedUsersPath, 'utf-8') || '[]') : [],
+    letters: fs.existsSync(seedLettersPath) ? JSON.parse(fs.readFileSync(seedLettersPath, 'utf-8') || '[]') : [],
+    vibe: fs.existsSync(seedVibePath) ? JSON.parse(fs.readFileSync(seedVibePath, 'utf-8') || '{}') : {}
+  };
+  fs.writeFileSync(path.join(distDir, 'seed-data.json'), JSON.stringify(seedPayload, null, 2), 'utf-8');
 
   // 3. Khởi tạo kho git tạm trong thư mục dist để đẩy lên nhánh gh-pages
   console.log('3. Đóng gói nhánh gh-pages...');
