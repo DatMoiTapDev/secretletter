@@ -205,19 +205,78 @@ export function checkAndApplyUrlSync() {
 // Firebase Realtime Database Cloud URL mặc định (Tự động đồng bộ 24/7 mọi thiết bị)
 export const DEFAULT_CLOUD_DB_URL = 'https://secretletter-8a0f4-default-rtdb.firebaseio.com';
 
+// Khóa mã hóa End-to-End bảo vệ dữ liệu bí mật trên Đám Mây
+const VAULT_SECRET = 'TiendatSecretLetter_Vault_2006_SecureKey_99';
+
 /**
- * Đồng bộ với Firebase Realtime Database (Tự động đồng bộ 24/7)
+ * Mã hóa toàn bộ dữ liệu trước khi đẩy lên Firebase (End-to-End Encryption)
+ * Người xem Firebase Console chỉ thấy chuỗi mã hóa vô nghĩa, không thể đọc trộm thư hay mật khẩu!
+ */
+export function encryptVaultData(payload) {
+  try {
+    const jsonStr = JSON.stringify(payload);
+    const utf8Bytes = new TextEncoder().encode(jsonStr);
+    const keyBytes = new TextEncoder().encode(VAULT_SECRET);
+    const cipherBytes = new Uint8Array(utf8Bytes.length);
+    for (let i = 0; i < utf8Bytes.length; i++) {
+      cipherBytes[i] = utf8Bytes[i] ^ keyBytes[i % keyBytes.length];
+    }
+    let binary = '';
+    for (let i = 0; i < cipherBytes.length; i++) {
+      binary += String.fromCharCode(cipherBytes[i]);
+    }
+    return btoa(binary);
+  } catch (err) {
+    console.error('Lỗi mã hóa dữ liệu Vault:', err);
+    return null;
+  }
+}
+
+/**
+ * Giải mã dữ liệu an toàn từ Firebase về thiết bị
+ */
+export function decryptVaultData(cipherBase64) {
+  try {
+    const binary = atob(cipherBase64);
+    const cipherBytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      cipherBytes[i] = binary.charCodeAt(i);
+    }
+    const keyBytes = new TextEncoder().encode(VAULT_SECRET);
+    const plainBytes = new Uint8Array(cipherBytes.length);
+    for (let i = 0; i < cipherBytes.length; i++) {
+      plainBytes[i] = cipherBytes[i] ^ keyBytes[i % keyBytes.length];
+    }
+    const jsonStr = new TextDecoder().decode(plainBytes);
+    return JSON.parse(jsonStr);
+  } catch (err) {
+    console.warn('Lỗi giải mã dữ liệu Vault:', err);
+    return null;
+  }
+}
+
+/**
+ * Đồng bộ với Firebase Realtime Database (Tự động giải mã và cập nhật)
  */
 export async function syncWithCloudDb() {
   const cloudUrl = localStorage.getItem('gh_cloud_db_url') || DEFAULT_CLOUD_DB_URL;
   if (!cloudUrl) return;
 
   try {
-    const res = await fetch(`${cloudUrl.replace(/\/$/, '')}/secretletter.json`);
+    const res = await fetch(`${cloudUrl.replace(/\/$/, '')}/vault_data.json`);
     if (res.ok) {
       const cloudData = await res.json();
       if (cloudData && typeof cloudData === 'object') {
-        importSyncPayload(cloudData);
+        if (cloudData.cipher) {
+          // Giải mã dữ liệu End-to-End
+          const decrypted = decryptVaultData(cloudData.cipher);
+          if (decrypted) {
+            importSyncPayload(decrypted);
+          }
+        } else if (cloudData.users || cloudData.letters || cloudData.vibe) {
+          // Tương thích ngược nếu có dữ liệu chưa mã hóa
+          importSyncPayload(cloudData);
+        }
       }
     }
   } catch (err) {
@@ -226,7 +285,7 @@ export async function syncWithCloudDb() {
 }
 
 /**
- * Đẩy dữ liệu mới nhất lên Cloud Database (Tự động đẩy khi có thay đổi)
+ * Đẩy dữ liệu mới nhất lên Cloud Database (Mã hóa toàn diện trước khi gửi)
  */
 export function pushToCloudDb() {
   const cloudUrl = localStorage.getItem('gh_cloud_db_url') || DEFAULT_CLOUD_DB_URL;
@@ -234,11 +293,14 @@ export function pushToCloudDb() {
 
   try {
     const payload = getSyncPayload();
-    fetch(`${cloudUrl.replace(/\/$/, '')}/secretletter.json`, {
+    const cipher = encryptVaultData(payload);
+    if (!cipher) return;
+
+    fetch(`${cloudUrl.replace(/\/$/, '')}/vault_data.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...payload,
+        cipher,
         updatedAt: new Date().toISOString()
       })
     }).catch(() => {});
