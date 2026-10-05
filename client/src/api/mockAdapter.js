@@ -122,54 +122,80 @@ export function importSyncPayload(data) {
 }
 
 /**
- * Sinh đường link đồng bộ chứa toàn bộ tài khoản và thư cơ bản
+ * Tạo mã đồng bộ ngắn gọn chỉ chứa thông tin tài khoản (username + password + displayName)
+ * Không chứa ảnh hay nội dung thư để đảm bảo mã đủ ngắn cho QR Code
  */
-export function generateSyncUrl() {
-  const payload = getSyncPayload();
-  const compactPayload = {
-    users: payload.users,
-    vibe: payload.vibe,
-    letters: payload.letters.map(l => ({
-      ...l,
-      photos: (l.photos || []).filter(p => !p?.url?.startsWith('data:') || p.url.length < 15000)
+export function generateSyncCode() {
+  const users = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
+  // Chỉ lấy các tài khoản thành viên (không phải admin)
+  const members = users.filter(u => u.role !== 'admin' && u.username !== 'admin' && u.username !== 'tiendat');
+  const minimalPayload = {
+    v: 2,
+    users: members.map(u => ({
+      id: u.id,
+      username: u.username,
+      initialPassword: u.initialPassword,
+      displayName: u.displayName || u.username,
+      avatar: u.avatar || '🌸',
+      role: 'member',
+      status: u.status || 'active'
     }))
   };
+  return encodeBase64Utf8(JSON.stringify(minimalPayload));
+}
 
-  const jsonStr = JSON.stringify(compactPayload);
-  const b64 = encodeBase64Utf8(jsonStr);
-
+/**
+ * Sinh đường link đồng bộ ngắn gọn chỉ chứa tài khoản thành viên
+ */
+export function generateSyncUrl() {
+  const code = generateSyncCode();
   const origin = window.location.origin;
   const basePath = import.meta.env.BASE_URL || '/';
   const fullBase = `${origin}${basePath.endsWith('/') ? basePath : basePath + '/'}`;
-  return `${fullBase}?sync=${encodeURIComponent(b64)}`;
+  return `${fullBase}?sync=${encodeURIComponent(code)}`;
 }
 
 /**
  * Kiểm tra và tự động nạp dữ liệu khi mở web qua link đồng bộ (?sync=...)
+ * Hỗ trợ cả format cũ (v1 - toàn bộ payload) và format mới (v2 - chỉ tài khoản)
  */
 export function checkAndApplyUrlSync() {
   if (typeof window === 'undefined') return;
   try {
-    const urlParams = new URLSearchParams(window.location.search);
+    // Đọc từ window.location.search (hỗ trợ cả BrowserRouter)
+    const searchStr = window.location.search || window.location.href.split('?')[1] || '';
+    const urlParams = new URLSearchParams(searchStr);
     const syncParam = urlParams.get('syncData') || urlParams.get('sync');
-    if (syncParam) {
-      let json = null;
+    if (!syncParam) return;
+
+    let json = null;
+    try {
+      const decoded = decodeBase64Utf8(decodeURIComponent(syncParam));
+      json = JSON.parse(decoded);
+    } catch {
       try {
-        json = JSON.parse(decodeBase64Utf8(syncParam));
-      } catch {
         json = JSON.parse(decodeURIComponent(syncParam));
+      } catch {
+        console.warn('Không thể giải mã sync param');
+        return;
       }
+    }
 
-      if (json) {
-        const res = importSyncPayload(json);
-        const cleanUrl = window.location.pathname + window.location.hash;
-        window.history.replaceState({}, document.title, cleanUrl);
+    if (!json || typeof json !== 'object') return;
 
-        sessionStorage.setItem(
-          'sync_toast_message',
-          `🎉 Đã đồng bộ thành công ${res.importedUsers} tài khoản từ máy tính sang điện thoại! Bạn có thể đăng nhập ngay.`
-        );
-      }
+    // Format v2: chỉ có users mà không có letters/vibe
+    // Format v1: có đầy đủ users + letters + vibe
+    const res = importSyncPayload(json);
+
+    // Xóa tham số sync khỏi URL
+    const cleanUrl = window.location.pathname + window.location.hash;
+    window.history.replaceState({}, document.title, cleanUrl);
+
+    if (res.importedUsers > 0) {
+      sessionStorage.setItem(
+        'sync_toast_message',
+        `🎉 Đã đồng bộ thành công ${res.importedUsers} tài khoản từ máy tính sang điện thoại! Bạn có thể đăng nhập ngay.`
+      );
     }
   } catch (err) {
     console.warn('Lỗi đọc dữ liệu đồng bộ URL:', err);

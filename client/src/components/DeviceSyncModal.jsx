@@ -22,6 +22,7 @@ import { copyToClipboard } from '../utils/url';
 import {
   getSyncPayload,
   generateSyncUrl,
+  generateSyncCode,
   importSyncPayload,
   encodeBase64Utf8,
   decodeBase64Utf8
@@ -32,7 +33,8 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   const [syncUrl, setSyncUrl] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
-  const [copiedSeed, setCopiedSeed] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [syncCode, setSyncCode] = useState('');
 
   // Thống kê dữ liệu hiện tại trên thiết bị
   const [userList, setUserList] = useState([]);
@@ -58,21 +60,33 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
     setUserList(members);
     setLetterCount((payload.letters || []).length);
 
-    // Tạo link đồng bộ
+    // Tạo mã đồng bộ ngắn và link đồng bộ
     try {
+      const code = generateSyncCode();
+      setSyncCode(code);
+
       const url = generateSyncUrl();
       setSyncUrl(url);
 
+      // QR Code được tạo từ URL ngắn (chỉ chứa tài khoản, không có ảnh)
+      // URL ngắn đảm bảo QR Code luôn tạo được và có thể quét được
       QRCode.toDataURL(url, {
         width: 300,
         margin: 2,
+        errorCorrectionLevel: 'M',
         color: {
           dark: '#1e1b4b',
           light: '#ffffff'
         }
       })
         .then((dataUrl) => setQrCodeDataUrl(dataUrl))
-        .catch((err) => console.error('Lỗi sinh mã QR đồng bộ:', err));
+        .catch((err) => {
+          console.error('Lỗi sinh mã QR đồng bộ:', err, 'URL length:', url.length);
+          // Fallback: thử lại với URL ngắn hơn (chỉ code, không kèm origin)
+          QRCode.toDataURL(code, { width: 300, margin: 2 })
+            .then((dataUrl) => setQrCodeDataUrl(dataUrl))
+            .catch((e2) => console.error('QR fallback cũng lỗi:', e2));
+        });
     } catch (err) {
       console.error('Lỗi chuẩn bị link đồng bộ:', err);
     }
@@ -86,6 +100,14 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
     await copyToClipboard(syncUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  // Sao chép mã đồng bộ ngắn
+  const handleCopySyncCode = async () => {
+    soundEngine.playClickSound();
+    await copyToClipboard(syncCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2500);
   };
 
   // Tải file backup JSON
@@ -324,8 +346,9 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
                     className="w-56 h-56 rounded-xl object-contain shadow-inner"
                   />
                 ) : (
-                  <div className="w-56 h-56 flex items-center justify-center text-xs text-neutral-400">
-                    Đang tạo mã QR...
+                  <div className="w-56 h-56 flex flex-col items-center justify-center gap-2 text-xs text-neutral-400">
+                    <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                    <span>Đang tạo mã QR...</span>
                   </div>
                 )}
                 <span className="text-[11px] font-serif font-semibold text-neutral-600 mt-2 text-center">
@@ -354,7 +377,7 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
 
                 <div className="pt-2 space-y-2 border-t border-neutral-200 dark:border-white/10">
                   <span className="text-xs font-serif font-medium block">
-                    Hoặc sao chép link gửi qua Zalo / Messenger cho chính bạn hoặc bạn bè:
+                    Hoặc sao chép link gửi qua Zalo / Messenger:
                   </span>
                   <button
                     type="button"
@@ -370,6 +393,31 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
                 </div>
               </div>
             </div>
+
+            {/* MÃ ĐỒNG BỘ NGẮN - Dán trực tiếp trên điện thoại */}
+            {syncCode && (
+              <div className={`p-4 rounded-2xl border space-y-2 ${isDarkMode ? 'bg-neutral-800/60 border-white/10' : 'bg-stone-50 border-stone-200'}`}>
+                <span className="text-xs font-serif font-bold flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                  🔑 Cách thay thế: Nhập mã ngắn trực tiếp trên điện thoại
+                </span>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Sao chép mã bên dưới, vào web trên điện thoại → Tab "Sao Lưu" → Dán vào ô "Dán mã đồng bộ".
+                </p>
+                <div className="flex items-center gap-2">
+                  <div className={`flex-1 px-3 py-2 rounded-xl text-[11px] font-mono break-all border ${isDarkMode ? 'bg-neutral-900 border-white/10 text-neutral-300' : 'bg-white border-stone-200 text-stone-700'}`}>
+                    {syncCode.length > 80 ? syncCode.slice(0, 80) + '...' : syncCode}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopySyncCode}
+                    className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-serif font-bold text-xs cursor-pointer shadow-xs"
+                  >
+                    {copiedCode ? <Check size={14} /> : <Copy size={14} />}
+                    <span>{copiedCode ? 'Đã Copy!' : 'Copy'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
