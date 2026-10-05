@@ -83,21 +83,16 @@ export default function AdminEditor() {
     recipientUsername: '',
     isBroadcast: true,
     title: '',
-    introQuote: 'Có một vài điều mình muốn bạn đọc thật chậm...',
+    introQuote: '',
     theme: 'tet',
-    hasPassword: true,
+    hasPassword: false,
     password: '',
     newPassword: '',
     passwordHint: '',
     content: {
-      greeting: 'Gửi bạn,',
-      paragraphs: ['Có những khoảnh khắc trong đời thật khó để diễn tả bằng lời...'],
-      quotes: [
-        {
-          tag: '💭 Điều mình muốn nói',
-          text: 'Cảm ơn bạn vì đã luôn là một phần dịu dàng trong cuộc sống của mình.'
-        }
-      ]
+      greeting: '',
+      paragraphs: [''],
+      quotes: []
     },
     photos: [],
     music: {
@@ -108,15 +103,15 @@ export default function AdminEditor() {
       defaultVolume: 0.3
     },
     secretUnsaid: {
-      enabled: true,
-      prompt: '💌 Có một điều mình chưa nói...',
+      enabled: false,
+      prompt: '',
       buttonText: 'Mở phần này',
-      content: 'Mình thật lòng trân trọng từng phút giây được chuyện trò cùng bạn.'
+      content: ''
     },
     finalThought: {
-      enabled: true,
-      prompt: 'Còn một điều cuối cùng...',
-      content: 'Cảm ơn bạn vì đã đọc đến tận đây. Chúc bạn luôn an yên! ❤️'
+      enabled: false,
+      prompt: '',
+      content: ''
     },
     expiresAt: ''
   });
@@ -1251,6 +1246,7 @@ export default function AdminEditor() {
                       <input
                         type="text"
                         value={formData.secretUnsaid.prompt}
+                        placeholder="VD: 💌 Có một điều mình chưa nói..."
                         onChange={(e) =>
                           setFormData({
                             ...formData,
@@ -1310,6 +1306,7 @@ export default function AdminEditor() {
                       <input
                         type="text"
                         value={formData.finalThought.prompt}
+                        placeholder="VD: Còn một điều cuối cùng..."
                         onChange={(e) =>
                           setFormData({
                             ...formData,

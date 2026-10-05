@@ -242,23 +242,27 @@ export const THEMES = {
   }
 };
 
+// Tương thích ngược: map 'love' sang 'cute' (Chủ đề Yêu)
+THEMES.love = THEMES.cute;
+
 export const THEME_LIST = Object.values(THEMES);
 
 /**
  * Lấy theme kết hợp chế độ Nền Sáng (isDark = false) hoặc Nền Tối (isDark = true)
  */
 export function getTheme(themeId, isDark = false) {
-  const base = THEMES[themeId] || THEMES.tet;
-  const modeConfig = isDark ? base.dark : base.light;
+  const cleanId = themeId === 'love' ? 'cute' : themeId;
+  const base = THEMES[cleanId] || THEMES.cute || THEMES.tet;
+  const modeConfig = (isDark ? base.dark : base.light) || base.light || base.dark;
 
   return {
     ...base,
     isDark,
-    bgGradient: modeConfig.bgGradient,
-    readBgGradient: modeConfig.readBgGradient,
-    paperClass: modeConfig.paperClass,
-    paperText: modeConfig.paperText,
-    accentText: modeConfig.accentText,
-    envelope: modeConfig.envelope
+    bgGradient: modeConfig?.bgGradient || 'from-[#fff8f5] to-[#fee2e2]',
+    readBgGradient: modeConfig?.readBgGradient || 'from-[#fffafa] to-[#ffe4e6]',
+    paperClass: modeConfig?.paperClass || 'paper-parchment',
+    paperText: modeConfig?.paperText || 'text-neutral-900',
+    accentText: modeConfig?.accentText || 'text-red-700',
+    envelope: modeConfig?.envelope || base.envelope
   };
 }

@@ -508,7 +508,13 @@ export default function MemberDashboard() {
                         <Link
                           to={`/letter/${letter.slug || letter.id}`}
                           target="_blank"
-                          className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-serif font-bold text-xs text-center shadow-md transition-all flex items-center justify-center gap-1.5"
+                          onClick={() => {
+                            try {
+                              sessionStorage.setItem(`letter_cache_${letter.slug || letter.id}`, JSON.stringify(letter));
+                              sessionStorage.setItem(`letter_cache_${letter.id}`, JSON.stringify(letter));
+                            } catch {}
+                          }}
+                          className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-serif font-bold text-xs text-center shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <Eye size={14} />
                           <span>Mở Thư Ngay</span>

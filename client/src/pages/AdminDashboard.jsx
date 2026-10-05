@@ -101,7 +101,7 @@ export default function AdminDashboard() {
     passwordHint: '',
     title: '',
     introQuote: '',
-    greeting: 'Gửi bạn,',
+    greeting: '',
     paragraphs: '',
     secretUnsaid: '',
     finalThought: ''
@@ -119,6 +119,18 @@ export default function AdminDashboard() {
   const [copiedPassId, setCopiedPassId] = useState(null);
   const [createdUserCreds, setCreatedUserCreds] = useState(null);
   const [copiedCreatedCreds, setCopiedCreatedCreds] = useState(false);
+
+  // Modal Tạo Nhanh Link Thư Riêng
+  const [quickLetterModalOpen, setQuickLetterModalOpen] = useState(false);
+  const [quickLetterForm, setQuickLetterForm] = useState({
+    recipientName: '',
+    title: '',
+    theme: 'tet',
+    password: '',
+    passwordHint: '',
+    paragraphs: ''
+  });
+  const [quickLetterSubmitting, setQuickLetterSubmitting] = useState(false);
 
   // Xác thực mã quản trị
   const handleLogin = async (e) => {
@@ -237,11 +249,75 @@ export default function AdminDashboard() {
         if (letterModalOpen) setLetterModalOpen(false);
         if (userModalOpen) setUserModalOpen(false);
         if (resetModalOpen) setResetModalOpen(false);
+        if (quickLetterModalOpen) setQuickLetterModalOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedShareLetter, recipientModalOpen, letterModalOpen, userModalOpen, resetModalOpen]);
+  }, [selectedShareLetter, recipientModalOpen, letterModalOpen, userModalOpen, resetModalOpen, quickLetterModalOpen]);
+
+  // Tạo nhanh lá thư đường link riêng & mở ngay ShareModal
+  const handleQuickCreateLetter = async (e) => {
+    e.preventDefault();
+    if (!quickLetterForm.recipientName.trim()) {
+      alert('Vui lòng nhập tên người nhận.');
+      return;
+    }
+    soundEngine.playClickSound();
+    setQuickLetterSubmitting(true);
+    try {
+      const payload = {
+        recipientName: quickLetterForm.recipientName.trim(),
+        title: quickLetterForm.title.trim() || `Thư gửi ${quickLetterForm.recipientName.trim()}`,
+        theme: quickLetterForm.theme || 'tet',
+        hasPassword: Boolean(quickLetterForm.password.trim()),
+        password: quickLetterForm.password.trim(),
+        passwordHint: quickLetterForm.passwordHint.trim(),
+        content: {
+          greeting: `Gửi ${quickLetterForm.recipientName.trim()},`,
+          paragraphs: quickLetterForm.paragraphs.trim()
+            ? quickLetterForm.paragraphs.split('\n\n').filter(Boolean)
+            : ['Chúc bạn một ngày tràn ngập niềm vui và ấm áp!']
+        },
+        senderId: 'usr_tiendat_root',
+        senderUsername: 'admin',
+        senderName: 'Quản Trị Viên',
+        senderAvatar: '👑',
+        senderRole: 'admin',
+        isBroadcast: true
+      };
+
+      const res = await fetch('/api/letters', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': adminToken
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const created = data.data || data.letter || payload;
+        setQuickLetterModalOpen(false);
+        setQuickLetterForm({
+          recipientName: '',
+          title: '',
+          theme: 'tet',
+          password: '',
+          passwordHint: '',
+          paragraphs: ''
+        });
+        fetchLetters();
+        setSelectedShareLetter(created);
+      } else {
+        alert(data.message || 'Lỗi khi tạo thư.');
+      }
+    } catch (err) {
+      alert('Không thể kết nối đến máy chủ.');
+    } finally {
+      setQuickLetterSubmitting(false);
+    }
+  };
 
   // Xóa lá thư link trực tiếp
   const handleDeleteLetter = async (id, name) => {
@@ -955,7 +1031,7 @@ export default function AdminDashboard() {
                                 passwordHint: '',
                                 title: '',
                                 introQuote: '',
-                                greeting: `Gửi ${rec.name} thân mến,`,
+                                greeting: '',
                                 paragraphs: '',
                                 secretUnsaid: '',
                                 finalThought: ''
@@ -1102,31 +1178,80 @@ export default function AdminDashboard() {
                 </p>
               </div>
 
-              <Link
-                to="/admin/new"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 text-neutral-950 font-serif font-bold text-xs shadow-md hover:bg-amber-400 transition-all"
-              >
-                <Plus size={15} />
-                <span>Tạo Thư Link Riêng</span>
-              </Link>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundEngine.playClickSound();
+                    setQuickLetterForm({
+                      recipientName: '',
+                      title: '',
+                      theme: 'tet',
+                      password: '',
+                      passwordHint: '',
+                      paragraphs: ''
+                    });
+                    setQuickLetterModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/20 border border-amber-400/50 text-amber-700 dark:text-amber-300 font-serif font-bold text-xs shadow-xs hover:bg-amber-500/30 transition-all cursor-pointer"
+                  title="Nhập nhanh tên và lấy link + QR code ngay"
+                >
+                  <Plus size={15} />
+                  <span>⚡ Tạo Nhanh Link Thư & QR</span>
+                </button>
+
+                <Link
+                  to="/admin/new"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 text-neutral-950 font-serif font-bold text-xs shadow-md hover:bg-amber-400 transition-all"
+                >
+                  <Plus size={15} />
+                  <span>Trình Viết Thư Đầy Đủ</span>
+                </Link>
+              </div>
             </div>
 
             {letters.length === 0 ? (
-              <div className={`p-12 rounded-3xl border border-dashed text-center space-y-3 ${
+              <div className={`p-12 rounded-3xl border border-dashed text-center space-y-4 ${
                 isDarkMode ? 'bg-neutral-900/60 border-white/10 text-neutral-400' : 'bg-white border-neutral-300 text-stone-500 shadow-xs'
               }`}>
-                <Mail size={36} className="mx-auto opacity-40" />
-                <p className="font-serif text-base font-medium">Chưa có lá thư đường dẫn riêng nào.</p>
-                <p className="text-xs opacity-75 max-w-sm mx-auto">
-                  Bấm nút "Tạo Thư Link Riêng" phía trên để tạo lá thư độc lập đầu tiên kèm mã QR và liên kết riêng cho khách hàng.
+                <Mail size={36} className="mx-auto opacity-40 text-amber-500" />
+                <p className="font-serif text-base font-bold text-amber-800 dark:text-amber-300">Chưa có lá thư đường dẫn riêng nào.</p>
+                <p className="text-xs opacity-80 max-w-md mx-auto leading-relaxed">
+                  Bạn có thể tạo nhanh một đường link thư riêng kèm mã QR ngay tại đây chỉ với tên người nhận, hoặc mở trình soạn thảo đầy đủ để gắn ảnh và âm nhạc.
                 </p>
-                <Link
-                  to="/admin/new"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 mt-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-serif font-bold text-xs shadow-md transition-all"
-                >
-                  <Plus size={15} />
-                  <span>Tạo Lá Thư Đầu Tiên</span>
-                </Link>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundEngine.playClickSound();
+                      setQuickLetterForm({
+                        recipientName: '',
+                        title: '',
+                        theme: 'tet',
+                        password: '',
+                        passwordHint: '',
+                        paragraphs: ''
+                      });
+                      setQuickLetterModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-serif font-bold text-xs shadow-md transition-all cursor-pointer"
+                  >
+                    <Plus size={15} />
+                    <span>⚡ Tạo Nhanh Link & Mã QR Ngay</span>
+                  </button>
+
+                  <Link
+                    to="/admin/new"
+                    className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-serif font-bold text-xs border transition-all ${
+                      isDarkMode
+                        ? 'border-white/10 bg-neutral-800 text-neutral-200 hover:bg-neutral-700'
+                        : 'border-neutral-300 bg-stone-100 text-stone-800 hover:bg-stone-200'
+                    }`}
+                  >
+                    <Plus size={15} />
+                    <span>Mở Trình Soạn Thảo Đầy Đủ</span>
+                  </Link>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1880,6 +2005,134 @@ export default function AdminDashboard() {
                   className="w-2/3 py-2.5 rounded-xl bg-amber-500 text-neutral-950 font-serif font-bold text-xs hover:bg-amber-400 cursor-pointer shadow-md"
                 >
                   {letterForm.id ? 'Cập Nhật Khóa & Thư' : 'Lưu Chiếc Khóa & Thư'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL TẠO NHANH LINK THƯ RIÊNG & QR ================= */}
+      {quickLetterModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className={`w-full max-w-lg p-6 rounded-3xl border shadow-2xl relative max-h-[90vh] overflow-y-auto ${cardCls}`}>
+            <button
+              type="button"
+              onClick={() => setQuickLetterModalOpen(false)}
+              className={`absolute top-5 right-5 p-2 rounded-full cursor-pointer transition-colors ${
+                isDarkMode ? 'hover:bg-neutral-800 text-neutral-400' : 'hover:bg-neutral-100 text-neutral-600'
+              }`}
+            >
+              <X size={18} />
+            </button>
+
+            <div className="mb-5">
+              <h3 className="text-xl font-serif font-bold flex items-center gap-2">
+                <span>⚡</span>
+                <span>Tạo Nhanh Thư Đường Link Riêng</span>
+              </h3>
+              <p className={`text-xs mt-1 ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                Hệ thống sẽ lập tức tạo link và mã QR để bạn gửi ngay cho người nhận.
+              </p>
+            </div>
+
+            <form onSubmit={handleQuickCreateLetter} className="space-y-4">
+              <div>
+                <label className={labelCls}>Tên người nhận (bắt buộc):</label>
+                <input
+                  type="text"
+                  required
+                  value={quickLetterForm.recipientName}
+                  onChange={(e) => setQuickLetterForm({ ...quickLetterForm, recipientName: e.target.value })}
+                  placeholder="Ví dụ: Bé Heo, Bạn Thân, Người Yêu..."
+                  className={`w-full mt-1 px-3 py-2.5 rounded-xl font-serif text-xs outline-none ${inputCls}`}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>Tiêu đề lá thư (hiển thị khi mở):</label>
+                <input
+                  type="text"
+                  value={quickLetterForm.title}
+                  onChange={(e) => setQuickLetterForm({ ...quickLetterForm, title: e.target.value })}
+                  placeholder="Ví dụ: Một chút ấm áp gửi đến bạn..."
+                  className={`w-full mt-1 px-3 py-2.5 rounded-xl text-xs outline-none ${inputCls}`}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>Chủ đề giao diện lá thư:</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
+                  {THEME_LIST.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setQuickLetterForm({ ...quickLetterForm, theme: t.id })}
+                      className={`p-2.5 rounded-xl border flex flex-col items-center justify-center text-xs cursor-pointer transition-all ${
+                        quickLetterForm.theme === t.id
+                          ? 'bg-amber-500/25 border-amber-500 text-amber-900 dark:text-amber-200 font-bold'
+                          : isDarkMode
+                            ? 'bg-neutral-800/60 border-white/5 text-neutral-400'
+                            : 'bg-neutral-50 border-neutral-200 text-neutral-600'
+                      }`}
+                    >
+                      <span className="text-xl mb-0.5">{t.emoji}</span>
+                      <span>{t.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Mật khẩu mở thư (để trống nếu mở tự do):</label>
+                  <input
+                    type="text"
+                    value={quickLetterForm.password}
+                    onChange={(e) => setQuickLetterForm({ ...quickLetterForm, password: e.target.value })}
+                    placeholder="VD: 1234, traitim..."
+                    className={`w-full mt-1 px-3 py-2 rounded-xl font-mono text-xs outline-none ${inputCls}`}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Gợi ý mật khẩu (nếu có):</label>
+                  <input
+                    type="text"
+                    value={quickLetterForm.passwordHint}
+                    onChange={(e) => setQuickLetterForm({ ...quickLetterForm, passwordHint: e.target.value })}
+                    placeholder="VD: Ngày chúng ta quen nhau..."
+                    className={`w-full mt-1 px-3 py-2 rounded-xl text-xs outline-none ${inputCls}`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>Nội dung tâm thư (lời nhắn):</label>
+                <textarea
+                  rows={4}
+                  value={quickLetterForm.paragraphs}
+                  onChange={(e) => setQuickLetterForm({ ...quickLetterForm, paragraphs: e.target.value })}
+                  placeholder="Nhập những lời chúc, lời tâm sự của bạn gửi gắm vào lá thư..."
+                  className={`w-full mt-1 p-3 rounded-xl font-serif text-xs leading-relaxed outline-none ${inputCls}`}
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickLetterModalOpen(false)}
+                  className={`w-1/3 py-2.5 rounded-xl font-serif text-xs cursor-pointer ${
+                    isDarkMode ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                  }`}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={quickLetterSubmitting}
+                  className="w-2/3 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-serif font-bold text-xs cursor-pointer shadow-md disabled:opacity-50"
+                >
+                  {quickLetterSubmitting ? 'Đang tạo...' : 'Tạo Ngay & Lấy Link / Mã QR'}
                 </button>
               </div>
             </form>

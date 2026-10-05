@@ -76,46 +76,54 @@ export function importSyncPayload(data) {
   let importedUsers = 0;
   let importedLetters = 0;
 
-  // 1. Nhập danh sách tài khoản
+  // 1. Nhập danh sách tài khoản: Cloud là nguồn chuẩn, thay thế hoàn toàn danh sách cũ
+  // để các tài khoản đã bị Admin xóa ở Dashboard sẽ biến mất vĩnh viễn trên mọi máy!
   if (data.users && Array.isArray(data.users)) {
-    const curUsers = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
+    const adminRoot = {
+      id: 'usr_tiendat_root',
+      username: 'admin',
+      initialPassword: 'Tiendat@2006',
+      displayName: 'Quản Trị Viên',
+      avatar: '👑',
+      role: 'admin',
+      status: 'active',
+      createdAt: '2026-09-24T00:00:00.000Z'
+    };
+    const adminAlias = {
+      id: 'usr_tiendat_alias',
+      username: 'tiendat',
+      initialPassword: 'Tiendat@2006',
+      displayName: 'Tiến Đạt',
+      avatar: '👑',
+      role: 'admin',
+      status: 'active',
+      createdAt: '2026-09-24T00:00:00.000Z'
+    };
+
     const userMap = new Map();
-    curUsers.forEach(u => userMap.set(u.username.toLowerCase(), u));
-    data.users.forEach(u => {
-      userMap.set(u.username.toLowerCase(), u);
-      importedUsers++;
+    userMap.set('admin', adminRoot);
+    userMap.set('tiendat', adminAlias);
+
+    data.users.forEach((u) => {
+      const uname = (u.username || '').toLowerCase().trim();
+      if (uname && uname !== 'admin' && uname !== 'tiendat') {
+        userMap.set(uname, u);
+        importedUsers++;
+      }
     });
+
     localStorage.setItem('gh_mock_users', JSON.stringify(Array.from(userMap.values())));
   }
 
-  // 2. Nhập danh sách lá thư
+  // 2. Nhập danh sách lá thư: Thay thế danh sách trên máy bằng dữ liệu chuẩn từ Cloud
   if (data.letters && Array.isArray(data.letters)) {
-    const curLetters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
-    const letterMap = new Map();
-    curLetters.forEach(l => letterMap.set(l.id || l.slug, l));
-    data.letters.forEach(l => {
-      letterMap.set(l.id || l.slug, l);
-      importedLetters++;
-    });
-    localStorage.setItem('gh_mock_letters', JSON.stringify(Array.from(letterMap.values())));
+    localStorage.setItem('gh_mock_letters', JSON.stringify(data.letters));
+    importedLetters = data.letters.length;
   }
 
-  // 3. Nhập dữ liệu Vibe Hub
+  // 3. Nhập dữ liệu Vibe Hub: Thay thế dữ liệu trên máy bằng dữ liệu chuẩn từ Cloud
   if (data.vibe && typeof data.vibe === 'object') {
-    const curVibe = JSON.parse(localStorage.getItem('gh_mock_vibe') || '{}');
-    const mergedVibe = { ...curVibe };
-    for (const [themeId, themeData] of Object.entries(data.vibe)) {
-      if (!mergedVibe[themeId]) {
-        mergedVibe[themeId] = themeData;
-      } else {
-        const existingRecs = mergedVibe[themeId].recipients || [];
-        const recMap = new Map();
-        existingRecs.forEach(r => recMap.set(r.id || r.name, r));
-        (themeData.recipients || []).forEach(r => recMap.set(r.id || r.name, r));
-        mergedVibe[themeId].recipients = Array.from(recMap.values());
-      }
-    }
-    localStorage.setItem('gh_mock_vibe', JSON.stringify(mergedVibe));
+    localStorage.setItem('gh_mock_vibe', JSON.stringify(data.vibe));
   }
 
   return { success: true, importedUsers, importedLetters };
@@ -311,6 +319,34 @@ export function setupGitHubPagesMock() {
   if (!IS_GITHUB_PAGES) return;
 
   console.log('🌐 Đang chạy trên GitHub Pages tĩnh: Kích hoạt LocalStorage Adapter toàn diện cho /api');
+
+  // 0. Làm sạch triệt để bộ nhớ LocalStorage cũ trên mọi thiết bị để các tài khoản đã bị Admin xóa ở Dashboard không còn lưu vết!
+  if (localStorage.getItem('gh_mock_version_clean_v4') !== 'true') {
+    const rootAdmins = [
+      {
+        id: 'usr_tiendat_root',
+        username: 'admin',
+        initialPassword: 'Tiendat@2006',
+        displayName: 'Quản Trị Viên',
+        avatar: '👑',
+        role: 'admin',
+        status: 'active',
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: 'usr_tiendat_alias',
+        username: 'tiendat',
+        initialPassword: 'Tiendat@2006',
+        displayName: 'Tiến Đạt',
+        avatar: '👑',
+        role: 'admin',
+        status: 'active',
+        createdAt: new Date().toISOString()
+      }
+    ];
+    localStorage.setItem('gh_mock_users', JSON.stringify(rootAdmins));
+    localStorage.setItem('gh_mock_version_clean_v4', 'true');
+  }
 
   // 1. Kiểm tra tham số link đồng bộ từ thiết bị khác (?sync=...)
   checkAndApplyUrlSync();
@@ -516,13 +552,15 @@ export function setupGitHubPagesMock() {
     // 3. QUẢN LÝ TÀI KHOẢN THÀNH VIÊN (/api/admin/users)
     // ============================================================
     if (apiPath.startsWith('/api/admin/users')) {
-      const users = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
-
       if (method === 'GET') {
+        await syncWithCloudDb();
+        const users = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
         // TUYỆT ĐỐI BẢO MẬT: Loại trừ tài khoản quản trị viên tối cao khỏi danh sách phân quyền
         const members = users.filter(u => u.role !== 'admin' && u.username !== 'admin' && u.username !== 'tiendat');
         return jsonRes(200, { success: true, data: members });
       }
+
+      const users = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
 
       if (method === 'POST') {
         const cleanUsername = body.username?.toLowerCase()?.trim();
@@ -588,13 +626,16 @@ export function setupGitHubPagesMock() {
     // ============================================================
     // 4.1. Soạn thư thành viên (/api/user/letters/compose)
     if (apiPath === '/api/user/letters/compose') {
+      await syncWithCloudDb();
       const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
       const userId = init.headers?.['x-user-id'] || body.senderId || 'usr_member';
       const userName = init.headers?.['x-user-name'] || body.senderUsername || 'member';
+      const generatedId = `letter-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
       const newLetter = {
-        id: `letter-${Date.now()}`,
-        slug: body.slug || `letter-${Date.now()}`,
+        ...body,
+        id: (body.id && body.id.trim()) ? body.id.trim() : generatedId,
+        slug: (body.slug && body.slug.trim()) ? body.slug.trim() : generatedId,
         senderId: userId,
         senderUsername: userName,
         senderName: body.senderName || userName,
@@ -602,7 +643,6 @@ export function setupGitHubPagesMock() {
         senderRole: 'member',
         isBroadcast: false,
         recipientUsername: body.recipientUsername ? body.recipientUsername.toLowerCase().trim() : '',
-        ...body,
         openedCount: 0,
         createdAt: new Date().toISOString()
       };
@@ -614,6 +654,7 @@ export function setupGitHubPagesMock() {
 
     // 4.2. Thư đã gửi (/api/user/letters/outbox)
     if (apiPath === '/api/user/letters/outbox') {
+      await syncWithCloudDb();
       const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
       const userId = init.headers?.['x-user-id'];
       const userName = (init.headers?.['x-user-name'] || '').toLowerCase();
@@ -629,6 +670,7 @@ export function setupGitHubPagesMock() {
 
     // 4.3. Thư nhận được (/api/user/letters/inbox)
     if (apiPath === '/api/user/letters/inbox') {
+      await syncWithCloudDb();
       const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
       const userId = init.headers?.['x-user-id'];
       const userName = (init.headers?.['x-user-name'] || '').toLowerCase();
@@ -664,19 +706,50 @@ export function setupGitHubPagesMock() {
     // 4.4. Metadata lá thư (/api/letters/:id/meta)
     if (apiPath.startsWith('/api/letters/') && apiPath.endsWith('/meta')) {
       const id = apiPath.replace('/api/letters/', '').replace('/meta', '');
-      const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
-      const letter = letters.find(l => l.id === id || l.slug === id);
+      let letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+      let letter = letters.find(l => l.id === id || l.slug === id);
+
+      // Nếu chưa thấy thư ở máy này, thử kéo dữ liệu mới nhất từ Cloud về!
+      if (!letter) {
+        await syncWithCloudDb();
+        letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+        letter = letters.find(l => l.id === id || l.slug === id);
+      }
+
+      // Nếu vẫn chưa thấy, tìm trong các chiếc khóa thư của Vibe Hub
+      if (!letter) {
+        const vibe = JSON.parse(localStorage.getItem('gh_mock_vibe') || '{}');
+        for (const themeData of Object.values(vibe)) {
+          if (!themeData.recipients || !Array.isArray(themeData.recipients)) continue;
+          for (const r of themeData.recipients) {
+            const rLetters = r.letters || r.keys || [];
+            const found = rLetters.find(l => l.id === id || l.slug === id);
+            if (found) {
+              letter = {
+                ...found,
+                recipientName: r.name,
+                theme: themeData.id || 'tet',
+                password: found.letterPassword || found.keyPassword || ''
+              };
+              break;
+            }
+          }
+          if (letter) break;
+        }
+      }
+
       if (letter) {
+        const normalizedTheme = letter.theme === 'love' ? 'cute' : (letter.theme || 'tet');
         return jsonRes(200, {
           success: true,
           meta: {
             id: letter.id,
-            slug: letter.slug,
-            recipientName: letter.recipientName,
-            title: letter.title,
-            introQuote: letter.introQuote,
-            theme: letter.theme,
-            hasPassword: Boolean(letter.password),
+            slug: letter.slug || letter.id,
+            recipientName: letter.recipientName || 'bạn',
+            title: letter.title || letter.keyTitle || 'Lá Thư Dành Riêng Cho Bạn',
+            introQuote: letter.introQuote || 'Có một vài điều mình muốn bạn đọc thật chậm...',
+            theme: normalizedTheme,
+            hasPassword: Boolean(letter.password || letter.letterPassword || letter.keyPassword),
             passwordHint: letter.passwordHint || '',
             expiresAt: letter.expiresAt || null
           }
@@ -688,41 +761,116 @@ export function setupGitHubPagesMock() {
     // 4.5. Mở khóa lá thư (/api/letters/:id/unlock)
     if (apiPath.startsWith('/api/letters/') && apiPath.endsWith('/unlock')) {
       const id = apiPath.replace('/api/letters/', '').replace('/unlock', '');
-      const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
-      const letter = letters.find(l => l.id === id || l.slug === id);
+      let letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+      let letter = letters.find(l => l.id === id || l.slug === id);
+
+      if (!letter) {
+        await syncWithCloudDb();
+        letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+        letter = letters.find(l => l.id === id || l.slug === id);
+      }
+
+      // Nếu là thư từ Vibe Hub
+      if (!letter) {
+        const vibe = JSON.parse(localStorage.getItem('gh_mock_vibe') || '{}');
+        for (const themeData of Object.values(vibe)) {
+          if (!themeData.recipients || !Array.isArray(themeData.recipients)) continue;
+          for (const r of themeData.recipients) {
+            const rLetters = r.letters || r.keys || [];
+            const found = rLetters.find(l => l.id === id || l.slug === id);
+            if (found) {
+              letter = {
+                ...found,
+                recipientName: r.name,
+                theme: themeData.id || 'tet',
+                password: found.letterPassword || found.keyPassword || ''
+              };
+              break;
+            }
+          }
+          if (letter) break;
+        }
+      }
+
       if (letter) {
-        if (letter.password && letter.password !== body.password) {
+        const targetPass = letter.password || letter.letterPassword || letter.keyPassword || '';
+        if (targetPass && normalizeKey(targetPass) !== normalizeKey(body.password || '')) {
           return jsonRes(401, { success: false, message: 'Mật khẩu chưa đúng, thử lại nhé 💌' });
         }
         letter.openedCount = (letter.openedCount || 0) + 1;
         localStorage.setItem('gh_mock_letters', JSON.stringify(letters));
-        return jsonRes(200, { success: true, data: letter });
+        pushToCloudDb();
+
+        const normalizedTheme = letter.theme === 'love' ? 'cute' : (letter.theme || 'tet');
+        return jsonRes(200, {
+          success: true,
+          data: {
+            ...letter,
+            theme: normalizedTheme,
+            content: letter.content || {
+              greeting: `Gửi ${letter.recipientName || 'bạn'},`,
+              paragraphs: Array.isArray(letter.paragraphs) ? letter.paragraphs : [letter.paragraphs || letter.message || ''],
+              quotes: []
+            }
+          }
+        });
       }
       return jsonRes(404, { success: false, message: 'Không tìm thấy thư.' });
     }
 
     // 4.6. Admin CRUD Thư Trực Tiếp (/api/letters)
     if (apiPath.startsWith('/api/letters') && !apiPath.endsWith('/meta') && !apiPath.endsWith('/unlock')) {
-      const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
       const id = apiPath.replace('/api/letters', '').replace(/^\//, '');
 
       // GET /api/letters/:id
       if (method === 'GET' && id) {
-        const letter = letters.find(l => l.id === id || l.slug === id);
+        await syncWithCloudDb();
+        const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+        let letter = letters.find(l => l.id === id || l.slug === id);
+        if (!letter) {
+          const vibe = JSON.parse(localStorage.getItem('gh_mock_vibe') || '{}');
+          for (const themeKey of Object.keys(vibe)) {
+            const themeObj = vibe[themeKey];
+            if (themeObj && Array.isArray(themeObj.recipients)) {
+              for (const rec of themeObj.recipients) {
+                if (Array.isArray(rec.letters)) {
+                  const match = rec.letters.find(l => l.id === id || l.slug === id);
+                  if (match) {
+                    letter = {
+                      ...match,
+                      recipientName: rec.name,
+                      theme: themeKey === 'love' ? 'cute' : themeKey
+                    };
+                    break;
+                  }
+                }
+              }
+            }
+            if (letter) break;
+          }
+        }
         if (letter) return jsonRes(200, { success: true, letter, data: letter });
         return jsonRes(404, { success: false, message: 'Không tìm thấy thư.' });
       }
 
       // GET /api/letters (Danh sách tất cả thư)
       if (method === 'GET') {
+        await syncWithCloudDb();
+        const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
         return jsonRes(200, { success: true, data: letters, letters });
       }
 
+      const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+
       // POST /api/letters (Tạo thư mới trong Creator Studio - Admin)
       if (method === 'POST') {
+        await syncWithCloudDb();
+        const currentLetters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+        const generatedId = `letter-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
         const newLetter = {
-          id: `letter-${Date.now()}`,
-          slug: body.slug || `letter-${Date.now()}`,
+          ...body,
+          id: (body.id && body.id.trim()) ? body.id.trim() : generatedId,
+          slug: (body.slug && body.slug.trim()) ? body.slug.trim() : generatedId,
           senderId: 'usr_tiendat_root',
           senderUsername: 'admin',
           senderName: 'Quản Trị Viên',
@@ -730,12 +878,11 @@ export function setupGitHubPagesMock() {
           senderRole: 'admin',
           isBroadcast: body.isBroadcast !== false,
           recipientUsername: body.recipientUsername ? body.recipientUsername.toLowerCase().trim() : '',
-          ...body,
           openedCount: 0,
           createdAt: new Date().toISOString()
         };
-        letters.unshift(newLetter);
-        localStorage.setItem('gh_mock_letters', JSON.stringify(letters));
+        currentLetters.unshift(newLetter);
+        localStorage.setItem('gh_mock_letters', JSON.stringify(currentLetters));
         pushToCloudDb();
         return jsonRes(201, { success: true, data: newLetter, letter: newLetter });
       }
@@ -765,6 +912,9 @@ export function setupGitHubPagesMock() {
     // 5. VIBE HUB: 4 BONG BÓNG & KHÓA 2 TẦNG (/api/vibe-hub)
     // ============================================================
     if (apiPath.startsWith('/api/vibe-hub')) {
+      if (method === 'GET') {
+        await syncWithCloudDb();
+      }
       const vibe = JSON.parse(localStorage.getItem('gh_mock_vibe') || '{}');
 
       // Đảm bảo 4 chủ đề mặc định luôn tồn tại

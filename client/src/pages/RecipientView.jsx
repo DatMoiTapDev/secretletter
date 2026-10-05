@@ -53,6 +53,28 @@ export default function RecipientView({ previewData = null }) {
   // Tải metadata từ API khi người nhận truy cập
   const fetchMeta = async () => {
     if (previewData) return;
+
+    // 1. Kiểm tra bộ nhớ cache tạm thời (nếu mở từ Hòm thư)
+    try {
+      const cached = sessionStorage.getItem(`letter_cache_${id}`);
+      if (cached) {
+        const cLetter = JSON.parse(cached);
+        if (cLetter) {
+          setMeta({
+            id: cLetter.id,
+            slug: cLetter.slug || cLetter.id,
+            recipientName: cLetter.recipientName || 'bạn',
+            title: cLetter.title || 'Lá Thư Dành Riêng Cho Bạn',
+            introQuote: cLetter.introQuote || 'Có một vài điều mình muốn bạn đọc thật chậm...',
+            theme: cLetter.theme || 'tet',
+            hasPassword: Boolean(cLetter.hasPassword || cLetter.password),
+            passwordHint: cLetter.passwordHint || ''
+          });
+          setLoading(false);
+        }
+      }
+    } catch {}
+
     setLoading(true);
     setErrorCode(null);
     try {
@@ -62,7 +84,7 @@ export default function RecipientView({ previewData = null }) {
       if (!res.ok) {
         if (res.status === 404) setErrorCode('NOT_FOUND');
         else if (res.status === 410) setErrorCode('EXPIRED');
-        else setErrorCode('ERROR');
+        else setErrorCode('NOT_FOUND');
         return;
       }
 
@@ -73,7 +95,10 @@ export default function RecipientView({ previewData = null }) {
       }
     } catch (err) {
       console.error('Lỗi khi tải metadata thư:', err);
-      setErrorCode('NETWORK');
+      // Nếu đã có cache thì không báo lỗi
+      if (!meta) {
+        setErrorCode('NETWORK');
+      }
     } finally {
       setLoading(false);
     }
@@ -180,10 +205,10 @@ export default function RecipientView({ previewData = null }) {
   // Màn hình loading ban đầu
   if (loading || !meta) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-neutral-950 text-neutral-300">
-        <div className="w-12 h-12 border-3 border-amber-500/30 border-t-amber-400 rounded-full animate-spin mb-4" />
-        <p className="font-serif italic text-sm text-neutral-400 animate-pulse">
-          Đang chuẩn bị phong bì gửi tới bạn...
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-b from-[#fff8f5] via-[#fef2f2] to-[#fee2e2] text-neutral-800">
+        <div className="w-12 h-12 border-3 border-amber-500/30 border-t-amber-500 rounded-full animate-spin mb-4" />
+        <p className="font-serif italic text-sm text-amber-900 animate-pulse text-center">
+          Đang mở chiếc phong bì gửi tới bạn...
         </p>
       </div>
     );
