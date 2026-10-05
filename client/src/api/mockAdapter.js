@@ -202,11 +202,14 @@ export function checkAndApplyUrlSync() {
   }
 }
 
+// Firebase Realtime Database Cloud URL mặc định (Tự động đồng bộ 24/7 mọi thiết bị)
+export const DEFAULT_CLOUD_DB_URL = 'https://secretletter-8a0f4-default-rtdb.firebaseio.com';
+
 /**
- * Đồng bộ với Firebase Realtime Database (nếu cấu hình URL)
+ * Đồng bộ với Firebase Realtime Database (Tự động đồng bộ 24/7)
  */
 export async function syncWithCloudDb() {
-  const cloudUrl = localStorage.getItem('gh_cloud_db_url');
+  const cloudUrl = localStorage.getItem('gh_cloud_db_url') || DEFAULT_CLOUD_DB_URL;
   if (!cloudUrl) return;
 
   try {
@@ -223,10 +226,10 @@ export async function syncWithCloudDb() {
 }
 
 /**
- * Đẩy dữ liệu mới nhất lên Cloud Database (nếu cấu hình)
+ * Đẩy dữ liệu mới nhất lên Cloud Database (Tự động đẩy khi có thay đổi)
  */
 export function pushToCloudDb() {
-  const cloudUrl = localStorage.getItem('gh_cloud_db_url');
+  const cloudUrl = localStorage.getItem('gh_cloud_db_url') || DEFAULT_CLOUD_DB_URL;
   if (!cloudUrl) return;
 
   try {
@@ -309,10 +312,22 @@ export function setupGitHubPagesMock() {
     }));
   }
 
-  // 6. Lắng nghe sự kiện window focus để đồng bộ dữ liệu mới nhất
+  // 6. Lắng nghe sự kiện window focus và định kỳ để đồng bộ dữ liệu mới nhất từ đám mây
   window.addEventListener('focus', () => {
     syncWithCloudDb();
   });
+  setInterval(() => {
+    syncWithCloudDb();
+  }, 30000);
+
+  // 7. Tự động đồng bộ ngược dữ liệu hiện có trên thiết bị lên Cloud nếu có dữ liệu thành viên
+  setTimeout(() => {
+    const curUsers = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
+    const hasMembers = curUsers.some(u => u.role !== 'admin' && u.username !== 'admin' && u.username !== 'tiendat');
+    if (hasMembers) {
+      pushToCloudDb();
+    }
+  }, 1000);
 
   const originalFetch = window.fetch;
 
@@ -377,7 +392,15 @@ export function setupGitHubPagesMock() {
       }
 
       // Trường hợp thành viên thường
-      const user = users.find(u => u.username.toLowerCase() === cleanUser);
+      let user = users.find(u => u.username.toLowerCase() === cleanUser);
+
+      // Nếu máy chưa có tài khoản này (ví dụ vừa được tạo ở máy khác), thử kéo từ Firebase về ngay!
+      if (!user) {
+        await syncWithCloudDb();
+        const refreshedUsers = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
+        user = refreshedUsers.find(u => u.username.toLowerCase() === cleanUser);
+      }
+
       if (user) {
         if (user.status === 'locked') {
           return jsonRes(403, { success: false, message: 'Tài khoản này đã bị khóa. Vui lòng liên hệ Admin.' });

@@ -14,7 +14,6 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
-import DeviceSyncModal from '../components/DeviceSyncModal';
 
 export default function MemberLogin() {
   const navigate = useNavigate();
@@ -24,7 +23,6 @@ export default function MemberLogin() {
   const [loading, setLoading] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [syncSuccessMsg, setSyncSuccessMsg] = useState('');
-  const [syncModalOpen, setSyncModalOpen] = useState(false);
 
   useEffect(() => {
     // Kiểm tra xem có thông báo đồng bộ vừa hoàn tất không
@@ -209,23 +207,6 @@ export default function MemberLogin() {
           </button>
         </form>
 
-        {/* NÚT ĐỒNG BỘ DÀNH CHO NGƯỜI DÙNG ĐIỆN THOẠI */}
-        <div className="pt-1 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              soundEngine.playClickSound();
-              setSyncModalOpen(true);
-            }}
-            className={`inline-flex items-center gap-1.5 text-xs font-serif font-medium transition-colors cursor-pointer ${
-              isDarkMode ? 'text-amber-400 hover:text-amber-300' : 'text-amber-700 hover:text-amber-900'
-            }`}
-          >
-            <Smartphone size={13} />
-            <span>Chưa thấy tài khoản trên điện thoại? Đồng bộ từ máy tính</span>
-          </button>
-        </div>
-
         {/* LỜI NHẮC RIÊNG TƯ */}
         <div className={`p-3.5 rounded-2xl border text-xs text-center space-y-1.5 ${
           isDarkMode ? 'bg-neutral-800/40 border-white/5 text-neutral-400' : 'bg-stone-50 border-stone-200 text-stone-500'
@@ -236,13 +217,6 @@ export default function MemberLogin() {
         </div>
 
       </div>
-
-      {/* MODAL ĐỒNG BỘ THIẾT BỊ */}
-      <DeviceSyncModal
-        isOpen={syncModalOpen}
-        onClose={() => setSyncModalOpen(false)}
-        isDarkMode={isDarkMode}
-      />
     </div>
   );
 }
