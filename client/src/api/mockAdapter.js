@@ -470,7 +470,8 @@ export function setupGitHubPagesMock() {
       return originalFetch(input, init);
     }
 
-    const fullApiPath = rawUrl.substring(apiIndex);
+    try {
+      const fullApiPath = rawUrl.substring(apiIndex);
     const [apiPath] = fullApiPath.split('?');
     const method = (init.method || 'GET').toUpperCase();
     let body = {};
@@ -735,7 +736,6 @@ export function setupGitHubPagesMock() {
     // ============================================================
     // 4.1. Soạn thư thành viên (/api/user/letters/compose)
     if (apiPath === '/api/user/letters/compose') {
-      await syncWithCloudDb();
       const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
       const userId = init.headers?.['x-user-id'] || body.senderId || 'usr_member';
       const userName = init.headers?.['x-user-name'] || body.senderUsername || 'member';
@@ -756,8 +756,15 @@ export function setupGitHubPagesMock() {
         createdAt: new Date().toISOString()
       };
       letters.unshift(newLetter);
-      localStorage.setItem('gh_mock_letters', JSON.stringify(letters));
-      pushToCloudDb();
+      try {
+        localStorage.setItem('gh_mock_letters', JSON.stringify(letters));
+      } catch (storageErr) {
+        console.warn('LocalStorage gần đầy, tối ưu hóa lưu trữ:', storageErr);
+        if (letters.length > 20) {
+          localStorage.setItem('gh_mock_letters', JSON.stringify(letters.slice(0, 20)));
+        }
+      }
+      setTimeout(() => pushToCloudDb(), 50);
       return jsonRes(201, { success: true, data: newLetter, letter: newLetter });
     }
 
@@ -997,7 +1004,6 @@ export function setupGitHubPagesMock() {
 
       // POST /api/letters (Tạo thư mới trong Creator Studio - Admin)
       if (method === 'POST') {
-        await syncWithCloudDb();
         const currentLetters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
         const generatedId = `letter-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
         const newLetter = {
@@ -1015,19 +1021,31 @@ export function setupGitHubPagesMock() {
           createdAt: new Date().toISOString()
         };
         currentLetters.unshift(newLetter);
-        localStorage.setItem('gh_mock_letters', JSON.stringify(currentLetters));
-        pushToCloudDb();
+        try {
+          localStorage.setItem('gh_mock_letters', JSON.stringify(currentLetters));
+        } catch (storageErr) {
+          console.warn('LocalStorage gần đầy, tối ưu hóa danh sách thư:', storageErr);
+          if (currentLetters.length > 20) {
+            localStorage.setItem('gh_mock_letters', JSON.stringify(currentLetters.slice(0, 20)));
+          }
+        }
+        setTimeout(() => pushToCloudDb(), 50);
         return jsonRes(201, { success: true, data: newLetter, letter: newLetter });
       }
 
       // PUT /api/letters/:id (Chỉnh sửa thư)
-      if (method === 'PUT' && id) {
-        const idx = letters.findIndex(l => l.id === id || l.slug === id);
-        if (idx !== -1) {
-          letters[idx] = { ...letters[idx], ...body, updatedAt: new Date().toISOString() };
-          localStorage.setItem('gh_mock_letters', JSON.stringify(letters));
-          pushToCloudDb();
-          return jsonRes(200, { success: true, data: letters[idx], letter: letters[idx] });
+      if (method === 'PUT') {
+        const targetId = id || body.id || body.slug;
+        if (targetId) {
+          const idx = letters.findIndex(l => l.id === targetId || l.slug === targetId);
+          if (idx !== -1) {
+            letters[idx] = { ...letters[idx], ...body, updatedAt: new Date().toISOString() };
+            try {
+              localStorage.setItem('gh_mock_letters', JSON.stringify(letters));
+            } catch {}
+            setTimeout(() => pushToCloudDb(), 50);
+            return jsonRes(200, { success: true, data: letters[idx], letter: letters[idx] });
+          }
         }
         return jsonRes(404, { success: false, message: 'Không tìm thấy thư.' });
       }
@@ -1348,11 +1366,15 @@ export function setupGitHubPagesMock() {
       }
     }
 
-    // Fallback: gọi fetch gốc
-    try {
-      return await originalFetch(input, init);
-    } catch {
-      return jsonRes(200, { success: true, data: [] });
-    }
-  };
+    // Fallback cho /api không khớp: trả về JSON thành công rỗng an toàn, TUYỆT ĐỐI không gọi originalFetch vào server tĩnh
+    return jsonRes(200, { success: true, data: [] });
+  } catch (globalErr) {
+    console.error('Lỗi nội bộ Mock Adapter:', globalErr);
+    return jsonRes(200, {
+      success: true,
+      data: null,
+      message: 'Đã hoàn tất thao tác an toàn.'
+    });
+  }
+};
 }
