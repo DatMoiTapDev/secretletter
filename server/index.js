@@ -56,7 +56,7 @@ app.use('/api/user/letters', userLettersRouter);
 // API Verify Admin Passcode endpoint (kèm Rate Limiting chống dò mật khẩu)
 app.post('/api/admin/verify', authRateLimiter, (req, res) => {
   const { password } = req.body;
-  const adminSecret = process.env.ADMIN_KEY || 'Tiendat@2006';
+  const adminSecret = process.env.ADMIN_KEY || '';
 
   if (password && password === adminSecret) {
     return res.json({ success: true, token: adminSecret });

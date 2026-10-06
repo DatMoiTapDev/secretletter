@@ -10,9 +10,6 @@
  * - Mở khóa thư, xem trước và chia sẻ
  */
 
-// Hash mã hóa bảo mật SHA-256 cho mã quản trị tối cao (Tuyệt đối không lưu mật khẩu thô trong mã nguồn)
-const ADMIN_PASS_HASH = '6a4cb9d5ad073508872709f3ee4309e279ef20f4d25fff2fa16aa3575697e7ce';
-
 export async function sha256Hash(text) {
   try {
     const encoder = new TextEncoder();
@@ -24,6 +21,28 @@ export async function sha256Hash(text) {
   } catch {
     return '';
   }
+}
+
+// Cấu hình Salt bảo mật chống tấn công từ điển (Rainbow Table Defense)
+const SEC_SALT_ALPHA = 'SecShield_94K_x81';
+const SEC_SALT_BETA = 'CoreAnchor_v92_z11';
+const VALID_SYSTEM_SIG = 'ba2fa24132fae46fed2c7cc9791df6c3464394b7c8c8e1ecacbaf362dfc64b32';
+
+/**
+ * Xác thực quyền quản trị viên tối cao qua thuật toán băm đa tầng kèm Salt hệ thống
+ * (Không lưu trữ mật khẩu hay hash nguyên bản trong mã nguồn)
+ */
+export async function verifyAdminKey(inputKey) {
+  if (!inputKey || typeof inputKey !== 'string') return false;
+  const trimmed = inputKey.trim();
+  if (!trimmed) return false;
+
+  const envKey = import.meta.env?.VITE_ADMIN_KEY;
+  if (envKey && trimmed === envKey) return true;
+
+  const part1 = await sha256Hash(`${trimmed}::${SEC_SALT_ALPHA}`);
+  const part2 = await sha256Hash(`${SEC_SALT_BETA}::${part1}`);
+  return part2 === VALID_SYSTEM_SIG;
 }
 
 const IS_GITHUB_PAGES = typeof window !== 'undefined' && (
@@ -121,7 +140,9 @@ export function importSyncPayload(data) {
     data.users.forEach((u) => {
       const uname = (u.username || '').toLowerCase().trim();
       if (uname && uname !== 'admin' && uname !== 'tiendat') {
-        userMap.set(uname, u);
+        const cleanUser = { ...u };
+        delete cleanUser.initialPassword;
+        userMap.set(uname, cleanUser);
         importedUsers++;
       }
     });
@@ -144,7 +165,7 @@ export function importSyncPayload(data) {
 }
 
 /**
- * Tạo mã đồng bộ ngắn gọn chỉ chứa thông tin tài khoản (username + password + displayName)
+ * Tạo mã đồng bộ ngắn gọn bảo mật chỉ chứa thông tin tài khoản đã băm (Zero plaintext password)
  * Không chứa ảnh hay nội dung thư để đảm bảo mã đủ ngắn cho QR Code
  */
 export function generateSyncCode() {
@@ -156,7 +177,8 @@ export function generateSyncCode() {
     users: members.map(u => ({
       id: u.id,
       username: u.username,
-      initialPassword: u.initialPassword,
+      passwordHash: u.passwordHash || '',
+      salt: u.salt || '',
       displayName: u.displayName || u.username,
       avatar: u.avatar || '🌸',
       role: 'member',
@@ -473,17 +495,17 @@ export function setupGitHubPagesMock() {
     };
 
     // ============================================================
-    // 1. ĐĂNG NHẬP & XÁC THỰC BẢO MẬT (SHA-256)
+    // 1. ĐĂNG NHẬP & XÁC THỰC BẢO MẬT (SALTED HASH MULTI-STAGE)
     // ============================================================
     if (apiPath === '/api/auth/login') {
       const users = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
       const cleanUser = body.username?.toLowerCase()?.trim() || '';
       const cleanPass = body.password?.trim() || '';
 
-      // Kiểm tra đăng nhập tài khoản quản trị viên bằng SHA-256
+      // Kiểm tra đăng nhập tài khoản quản trị viên tối cao
       if (cleanUser === 'admin' || cleanUser === 'tiendat') {
-        const inputHash = await sha256Hash(cleanPass);
-        if (inputHash === ADMIN_PASS_HASH) {
+        const isValidAdmin = await verifyAdminKey(cleanPass);
+        if (isValidAdmin) {
           const sessionToken = `adm_sec_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
           sessionStorage.setItem('active_adm_token', sessionToken);
           localStorage.setItem('admin_token', sessionToken);
@@ -507,7 +529,7 @@ export function setupGitHubPagesMock() {
       // Trường hợp thành viên thường
       let user = users.find(u => u.username.toLowerCase() === cleanUser);
 
-      // Nếu máy chưa có tài khoản này (ví dụ vừa được tạo ở máy khác), thử kéo từ Firebase về ngay!
+      // Nếu máy chưa có tài khoản này (ví dụ vừa được tạo ở máy khác), thử kéo từ Cloud về ngay
       if (!user) {
         await syncWithCloudDb();
         const refreshedUsers = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
@@ -518,10 +540,32 @@ export function setupGitHubPagesMock() {
         if (user.status === 'locked') {
           return jsonRes(403, { success: false, message: 'Tài khoản này đã bị khóa. Vui lòng liên hệ Admin.' });
         }
-        if (cleanPass === user.initialPassword) {
+
+        let isMatch = false;
+        if (user.passwordHash) {
+          const computedHash = await sha256Hash(`${cleanPass}::${user.salt || ''}`);
+          isMatch = (computedHash === user.passwordHash);
+        } else if (user.initialPassword) {
+          // Tương thích ngược: tự động chuyển đổi sang hash an toàn và xóa bỏ mật khẩu thô
+          isMatch = (cleanPass === user.initialPassword);
+          if (isMatch) {
+            const userSalt = Math.random().toString(36).substring(2, 8);
+            user.passwordHash = await sha256Hash(`${cleanPass}::${userSalt}`);
+            user.salt = userSalt;
+            delete user.initialPassword;
+            localStorage.setItem('gh_mock_users', JSON.stringify(users));
+            pushToCloudDb();
+          }
+        }
+
+        if (isMatch) {
+          const safeUser = { ...user };
+          delete safeUser.passwordHash;
+          delete safeUser.salt;
+          delete safeUser.initialPassword;
           return jsonRes(200, {
             success: true,
-            user,
+            user: safeUser,
             token: `usr_token_${user.id}`
           });
         }
@@ -532,8 +576,8 @@ export function setupGitHubPagesMock() {
 
     if (apiPath === '/api/admin/verify') {
       const inputPass = body.password?.trim() || '';
-      const inputHash = await sha256Hash(inputPass);
-      if (inputHash === ADMIN_PASS_HASH) {
+      const isValid = await verifyAdminKey(inputPass);
+      if (isValid) {
         const sessionToken = `adm_sec_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
         sessionStorage.setItem('active_adm_token', sessionToken);
         localStorage.setItem('admin_token', sessionToken);
@@ -606,9 +650,10 @@ export function setupGitHubPagesMock() {
       if (method === 'GET') {
         await syncWithCloudDb();
         const users = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
-        // TUYỆT ĐỐI BẢO MẬT: Loại trừ tài khoản quản trị viên tối cao khỏi danh sách phân quyền
+        // TUYỆT ĐỐI BẢO MẬT: Loại trừ tài khoản quản trị và lọc bỏ mọi thông tin mật khẩu
         const members = users.filter(u => u.role !== 'admin' && u.username !== 'admin' && u.username !== 'tiendat');
-        return jsonRes(200, { success: true, data: members });
+        const safeMembers = members.map(({ passwordHash, salt, initialPassword, ...safe }) => safe);
+        return jsonRes(200, { success: true, data: safeMembers });
       }
 
       const users = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
@@ -621,10 +666,13 @@ export function setupGitHubPagesMock() {
         if (users.some(u => u.username.toLowerCase() === cleanUsername)) {
           return jsonRes(400, { success: false, message: 'Tên tài khoản này đã tồn tại.' });
         }
+        const userSalt = Math.random().toString(36).substring(2, 8);
+        const passwordHash = await sha256Hash(`${(body.password || '').trim()}::${userSalt}`);
         const newUser = {
           id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           username: cleanUsername,
-          initialPassword: body.password,
+          passwordHash,
+          salt: userSalt,
           displayName: body.displayName || cleanUsername,
           avatar: body.avatar || '🌸',
           role: 'member',
@@ -634,7 +682,10 @@ export function setupGitHubPagesMock() {
         users.unshift(newUser);
         localStorage.setItem('gh_mock_users', JSON.stringify(users));
         pushToCloudDb();
-        return jsonRes(201, { success: true, data: newUser });
+        const safeCreated = { ...newUser };
+        delete safeCreated.passwordHash;
+        delete safeCreated.salt;
+        return jsonRes(201, { success: true, data: safeCreated });
       }
 
       if (method === 'PUT') {
@@ -646,7 +697,10 @@ export function setupGitHubPagesMock() {
           }
           const updated = { ...users[index] };
           if (body.newPassword) {
-            updated.initialPassword = body.newPassword;
+            const userSalt = Math.random().toString(36).substring(2, 8);
+            updated.passwordHash = await sha256Hash(`${body.newPassword.trim()}::${userSalt}`);
+            updated.salt = userSalt;
+            delete updated.initialPassword;
           }
           if (body.status) updated.status = body.status;
           if (body.displayName) updated.displayName = body.displayName;
@@ -654,7 +708,11 @@ export function setupGitHubPagesMock() {
           users[index] = updated;
           localStorage.setItem('gh_mock_users', JSON.stringify(users));
           pushToCloudDb();
-          return jsonRes(200, { success: true, data: updated });
+          const safeUpdated = { ...updated };
+          delete safeUpdated.passwordHash;
+          delete safeUpdated.salt;
+          delete safeUpdated.initialPassword;
+          return jsonRes(200, { success: true, data: safeUpdated });
         }
         return jsonRes(404, { success: false, message: 'Không tìm thấy tài khoản.' });
       }

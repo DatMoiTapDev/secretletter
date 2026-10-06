@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 
-const ADMIN_SECRET_KEY = process.env.ADMIN_KEY || 'Tiendat@2006';
+const ADMIN_SECRET_KEY = process.env.ADMIN_KEY || '';
 
 /**
  * Hash password with bcrypt

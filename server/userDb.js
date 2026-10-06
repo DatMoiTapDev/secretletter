@@ -14,14 +14,13 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// Khởi tạo tài khoản ban đầu nếu chưa tồn tại
 if (!fs.existsSync(USERS_FILE)) {
+  const adminKey = process.env.ADMIN_KEY || '';
   const initialUsers = [
     {
-      id: 'usr_tiendat_root',
+      id: 'usr_root_admin',
       username: 'tiendat',
-      passwordHash: bcrypt.hashSync('Tiendat@2006', 10),
-      initialPassword: 'Tiendat@2006',
+      passwordHash: adminKey ? bcrypt.hashSync(adminKey, 10) : '',
       displayName: 'Tiến Đạt',
       avatar: '👑',
       role: 'admin',
