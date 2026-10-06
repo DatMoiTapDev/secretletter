@@ -56,8 +56,16 @@ async function deployGhPages() {
   const seedLettersPath = path.join(dataDir, 'letters.json');
   const seedVibePath = path.join(dataDir, 'vibeStore.json');
 
+  const rawUsers = fs.existsSync(seedUsersPath) ? JSON.parse(fs.readFileSync(seedUsersPath, 'utf-8') || '[]') : [];
+  const sanitizedUsers = rawUsers
+    .filter((u) => u.role !== 'admin' && u.username !== 'admin' && u.username !== 'tiendat')
+    .map((u) => {
+      const { initialPassword, passwordHash, ...safe } = u;
+      return safe;
+    });
+
   const seedPayload = {
-    users: fs.existsSync(seedUsersPath) ? JSON.parse(fs.readFileSync(seedUsersPath, 'utf-8') || '[]') : [],
+    users: sanitizedUsers,
     letters: fs.existsSync(seedLettersPath) ? JSON.parse(fs.readFileSync(seedLettersPath, 'utf-8') || '[]') : [],
     vibe: fs.existsSync(seedVibePath) ? JSON.parse(fs.readFileSync(seedVibePath, 'utf-8') || '{}') : {}
   };

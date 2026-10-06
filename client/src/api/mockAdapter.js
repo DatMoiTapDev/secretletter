@@ -2,13 +2,29 @@
  * Mock API Adapter cho GitHub Pages & Môi trường tĩnh
  * Khi chạy trên GitHub Pages (không có máy chủ Node.js/Express chạy ngầm),
  * bộ Adapter này tự động chuyển hướng các lệnh gọi /api vào LocalStorage,
- * giúp người dùng vẫn có thể trải nghiệm 100% tính năng:
- * - Đăng nhập (Admin: admin / Tiendat@2006, Thành viên)
+ * giúp người dùng vẫn có thể trải nghiệm 100% tính năng với chuẩn bảo mật cao:
+ * - Đăng nhập xác thực bảo mật SHA-256 (Admin, Thành viên)
  * - Quản lý tài khoản (Cấp tài khoản mới, Upload avatar, Khóa/Mở, Đổi mật khẩu)
  * - Soạn thảo và lưu lá thư (Đầy đủ ảnh kỷ niệm, nhạc nền, điều chưa nói, mật mã)
  * - Vibe Hub (4 chủ đề, Khóa 1 tên người nhận, Khóa 2 các ổ khóa thư riêng)
  * - Mở khóa thư, xem trước và chia sẻ
  */
+
+// Hash mã hóa bảo mật SHA-256 cho mã quản trị tối cao (Tuyệt đối không lưu mật khẩu thô trong mã nguồn)
+const ADMIN_PASS_HASH = '6a4cb9d5ad073508872709f3ee4309e279ef20f4d25fff2fa16aa3575697e7ce';
+
+export async function sha256Hash(text) {
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  } catch {
+    return '';
+  }
+}
 
 const IS_GITHUB_PAGES = typeof window !== 'undefined' && (
   window.location.hostname.includes('github.io') ||
@@ -82,7 +98,6 @@ export function importSyncPayload(data) {
     const adminRoot = {
       id: 'usr_tiendat_root',
       username: 'admin',
-      initialPassword: 'Tiendat@2006',
       displayName: 'Quản Trị Viên',
       avatar: '👑',
       role: 'admin',
@@ -92,7 +107,6 @@ export function importSyncPayload(data) {
     const adminAlias = {
       id: 'usr_tiendat_alias',
       username: 'tiendat',
-      initialPassword: 'Tiendat@2006',
       displayName: 'Tiến Đạt',
       avatar: '👑',
       role: 'admin',
@@ -214,7 +228,7 @@ export function checkAndApplyUrlSync() {
 export const DEFAULT_CLOUD_DB_URL = 'https://secretletter-8a0f4-default-rtdb.firebaseio.com';
 
 // Khóa mã hóa End-to-End bảo vệ dữ liệu bí mật trên Đám Mây
-const VAULT_SECRET = 'TiendatSecretLetter_Vault_2006_SecureKey_99';
+const VAULT_SECRET = 'VaultSecretLetter_CoreShield_AESX_9941_K8';
 
 /**
  * Mã hóa toàn bộ dữ liệu trước khi đẩy lên Firebase (End-to-End Encryption)
@@ -320,13 +334,12 @@ export function setupGitHubPagesMock() {
 
   console.log('🌐 Đang chạy trên GitHub Pages tĩnh: Kích hoạt LocalStorage Adapter toàn diện cho /api');
 
-  // 0. Làm sạch triệt để bộ nhớ LocalStorage cũ trên mọi thiết bị để các tài khoản đã bị Admin xóa ở Dashboard không còn lưu vết!
-  if (localStorage.getItem('gh_mock_version_clean_v4') !== 'true') {
+  // 0. Làm sạch triệt để bộ nhớ LocalStorage cũ trên mọi thiết bị và loại bỏ mật khẩu thô
+  if (localStorage.getItem('gh_mock_version_clean_v5') !== 'true') {
     const rootAdmins = [
       {
-        id: 'usr_tiendat_root',
+        id: 'usr_root_admin',
         username: 'admin',
-        initialPassword: 'Tiendat@2006',
         displayName: 'Quản Trị Viên',
         avatar: '👑',
         role: 'admin',
@@ -334,9 +347,8 @@ export function setupGitHubPagesMock() {
         createdAt: new Date().toISOString()
       },
       {
-        id: 'usr_tiendat_alias',
+        id: 'usr_alias_admin',
         username: 'tiendat',
-        initialPassword: 'Tiendat@2006',
         displayName: 'Tiến Đạt',
         avatar: '👑',
         role: 'admin',
@@ -345,7 +357,7 @@ export function setupGitHubPagesMock() {
       }
     ];
     localStorage.setItem('gh_mock_users', JSON.stringify(rootAdmins));
-    localStorage.setItem('gh_mock_version_clean_v4', 'true');
+    localStorage.setItem('gh_mock_version_clean_v5', 'true');
   }
 
   // 1. Kiểm tra tham số link đồng bộ từ thiết bị khác (?sync=...)
@@ -372,9 +384,8 @@ export function setupGitHubPagesMock() {
   if (!localStorage.getItem('gh_mock_users')) {
     const initialUsers = [
       {
-        id: 'usr_tiendat_root',
+        id: 'usr_root_admin',
         username: 'admin',
-        initialPassword: 'Tiendat@2006',
         displayName: 'Quản Trị Viên',
         avatar: '👑',
         role: 'admin',
@@ -382,9 +393,8 @@ export function setupGitHubPagesMock() {
         createdAt: new Date().toISOString()
       },
       {
-        id: 'usr_tiendat_alias',
+        id: 'usr_alias_admin',
         username: 'tiendat',
-        initialPassword: 'Tiendat@2006',
         displayName: 'Tiến Đạt',
         avatar: '👑',
         role: 'admin',
@@ -463,30 +473,35 @@ export function setupGitHubPagesMock() {
     };
 
     // ============================================================
-    // 1. ĐĂNG NHẬP & XÁC THỰC
+    // 1. ĐĂNG NHẬP & XÁC THỰC BẢO MẬT (SHA-256)
     // ============================================================
     if (apiPath === '/api/auth/login') {
       const users = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
       const cleanUser = body.username?.toLowerCase()?.trim() || '';
       const cleanPass = body.password?.trim() || '';
 
-      // Trường hợp Admin: admin hoặc tiendat với pass Tiendat@2006
-      if ((cleanUser === 'admin' || cleanUser === 'tiendat') && cleanPass === 'Tiendat@2006') {
-        const adminUser = {
-          id: 'usr_tiendat_root',
-          username: cleanUser,
-          initialPassword: 'Tiendat@2006',
-          displayName: 'Quản Trị Viên',
-          avatar: '👑',
-          role: 'admin',
-          status: 'active',
-          createdAt: new Date().toISOString()
-        };
-        return jsonRes(200, {
-          success: true,
-          user: adminUser,
-          token: 'Tiendat@2006'
-        });
+      // Kiểm tra đăng nhập tài khoản quản trị viên bằng SHA-256
+      if (cleanUser === 'admin' || cleanUser === 'tiendat') {
+        const inputHash = await sha256Hash(cleanPass);
+        if (inputHash === ADMIN_PASS_HASH) {
+          const sessionToken = `adm_sec_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+          sessionStorage.setItem('active_adm_token', sessionToken);
+          localStorage.setItem('admin_token', sessionToken);
+          const adminUser = {
+            id: 'usr_root_admin',
+            username: cleanUser,
+            displayName: cleanUser === 'tiendat' ? 'Tiến Đạt' : 'Quản Trị Viên',
+            avatar: '👑',
+            role: 'admin',
+            status: 'active',
+            createdAt: new Date().toISOString()
+          };
+          return jsonRes(200, {
+            success: true,
+            user: adminUser,
+            token: sessionToken
+          });
+        }
       }
 
       // Trường hợp thành viên thường
@@ -503,7 +518,7 @@ export function setupGitHubPagesMock() {
         if (user.status === 'locked') {
           return jsonRes(403, { success: false, message: 'Tài khoản này đã bị khóa. Vui lòng liên hệ Admin.' });
         }
-        if (cleanPass === user.initialPassword || cleanPass === 'Tiendat@2006') {
+        if (cleanPass === user.initialPassword) {
           return jsonRes(200, {
             success: true,
             user,
@@ -516,8 +531,13 @@ export function setupGitHubPagesMock() {
     }
 
     if (apiPath === '/api/admin/verify') {
-      if (body.password === 'Tiendat@2006') {
-        return jsonRes(200, { success: true, token: 'Tiendat@2006' });
+      const inputPass = body.password?.trim() || '';
+      const inputHash = await sha256Hash(inputPass);
+      if (inputHash === ADMIN_PASS_HASH) {
+        const sessionToken = `adm_sec_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+        sessionStorage.setItem('active_adm_token', sessionToken);
+        localStorage.setItem('admin_token', sessionToken);
+        return jsonRes(200, { success: true, token: sessionToken });
       }
       return jsonRes(401, { success: false, message: 'Mã quản trị không đúng.' });
     }

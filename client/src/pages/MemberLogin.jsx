@@ -74,7 +74,7 @@ export default function MemberLogin() {
       if (res.ok && data.success) {
         const isAdmin = data.user.role === 'admin' || data.user.username === 'admin' || data.user.username === 'tiendat';
         if (isAdmin) {
-          localStorage.setItem('admin_token', 'Tiendat@2006');
+          localStorage.setItem('admin_token', data.token);
           localStorage.setItem('member_user', JSON.stringify(data.user));
           navigate('/admin', { replace: true });
         } else {
