@@ -29,9 +29,15 @@ class SoundEngine {
   constructor() {
     this.audioCtx = null;
     this.htmlAudio = null;
-    this.isMuted = false;
-    this.masterVolume = 0.4;
+    
+    // Ghi nhớ trạng thái âm thanh qua LocalStorage
+    const savedMuted = typeof window !== 'undefined' ? localStorage.getItem('letter_sound_muted') : null;
+    const savedVol = typeof window !== 'undefined' ? localStorage.getItem('letter_sound_volume') : null;
+    this.isMuted = savedMuted === 'true';
+    this.masterVolume = (savedVol !== null && !isNaN(parseFloat(savedVol))) ? parseFloat(savedVol) : 0.4;
+
     this.isPlaying = false;
+    this.isAutoplayBlocked = false;
     this.currentTrack = null;
     this.fadeInterval = null;
   }
@@ -201,14 +207,48 @@ class SoundEngine {
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
+            this.isAutoplayBlocked = false;
+            this.isPlaying = true;
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('soundEngine:stateChange', { detail: { isPlaying: true, isBlocked: false } }));
+            }
             this.fadeVolume(0, this.isMuted ? 0 : this.masterVolume, 1200);
           })
           .catch((err) => {
-            console.warn('Tự động phát audio bị chặn bởi trình duyệt, sẽ phát khi có tương tác tiếp theo:', err);
+            this.isAutoplayBlocked = true;
+            this.isPlaying = false;
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('soundEngine:stateChange', { detail: { isPlaying: false, isBlocked: true } }));
+            }
+            console.warn('Tự động phát audio bị chặn bởi trình duyệt, cần người dùng tương tác:', err);
           });
       }
     } catch (e) {
       console.error('Không thể phát file nhạc:', e);
+    }
+  }
+
+  /**
+   * Kích hoạt phát lại nhạc khi người dùng tương tác mở khóa / chạm nút
+   */
+  resumeBlockedMusic() {
+    this.initContext();
+    this.isAutoplayBlocked = false;
+    if (this.htmlAudio) {
+      const playPromise = this.htmlAudio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            this.isPlaying = true;
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('soundEngine:stateChange', { detail: { isPlaying: true, isBlocked: false } }));
+            }
+            this.fadeVolume(0, this.isMuted ? 0 : this.masterVolume, 800);
+          })
+          .catch(() => {});
+      }
+    } else if (this.currentTrack) {
+      this.startBackgroundMusic(this.currentTrack);
     }
   }
 
@@ -242,6 +282,7 @@ class SoundEngine {
    */
   stopBackgroundMusic() {
     this.isPlaying = false;
+    this.isAutoplayBlocked = false;
     if (this.fadeInterval) {
       clearInterval(this.fadeInterval);
       this.fadeInterval = null;
@@ -256,13 +297,20 @@ class SoundEngine {
       }
       this.htmlAudio = null;
     }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('soundEngine:stateChange', { detail: { isPlaying: false, isBlocked: false } }));
+    }
   }
 
   /**
-   * Chuyển đổi Bật / Tắt âm thanh (Mute / Unmute)
+   * Chuyển đổi Bật / Tắt âm thanh (Mute / Unmute) & Lưu LocalStorage
    */
   toggleMute() {
     this.isMuted = !this.isMuted;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('letter_sound_muted', String(this.isMuted));
+    }
 
     if (this.htmlAudio) {
       this.htmlAudio.muted = this.isMuted;
@@ -274,10 +322,13 @@ class SoundEngine {
   }
 
   /**
-   * Chỉnh âm lượng lớn / nhỏ (0.0 -> 1.0)
+   * Chỉnh âm lượng lớn / nhỏ (0.0 -> 1.0) & Lưu LocalStorage
    */
   setVolume(vol) {
     this.masterVolume = Math.max(0, Math.min(1, vol));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('letter_sound_volume', String(this.masterVolume));
+    }
     if (this.htmlAudio && !this.isMuted) {
       this.htmlAudio.volume = this.masterVolume;
     }

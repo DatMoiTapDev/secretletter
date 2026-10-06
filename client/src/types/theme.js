@@ -242,10 +242,11 @@ export const THEMES = {
   }
 };
 
-// Tương thích ngược: map 'love' sang 'cute' (Chủ đề Yêu)
-THEMES.love = THEMES.cute;
+// Danh sách 4 Chủ Đề Cốt Lõi (Đúng 4 chủ đề, không lặp lại)
+export const THEME_LIST = [THEMES.tet, THEMES.birthday, THEMES.cute, THEMES.emotional];
 
-export const THEME_LIST = Object.values(THEMES);
+// Tương thích ngược: map 'love' sang 'cute' (Chủ đề Yêu cho các lá thư cũ)
+THEMES.love = THEMES.cute;
 
 /**
  * Lấy theme kết hợp chế độ Nền Sáng (isDark = false) hoặc Nền Tối (isDark = true)

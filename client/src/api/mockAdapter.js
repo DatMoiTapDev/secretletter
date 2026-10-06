@@ -523,7 +523,7 @@ export function setupGitHubPagesMock() {
     }
 
     // ============================================================
-    // 2. UPLOAD FILE ẢNH & AUDIO (Chuyển thành DataURL base64)
+    // 2. UPLOAD FILE ẢNH & AUDIO (Tự động nén ảnh chống tràn bộ nhớ LocalStorage)
     // ============================================================
     if (apiPath === '/api/upload') {
       if (init.body instanceof FormData) {
@@ -532,8 +532,39 @@ export function setupGitHubPagesMock() {
           try {
             const dataUrl = await new Promise((resolve, reject) => {
               const reader = new FileReader();
-              reader.onload = () => resolve(reader.result);
               reader.onerror = reject;
+              reader.onload = (e) => {
+                const result = e.target.result;
+                // Nếu là file ảnh, nén qua Canvas để giảm kích thước xuống dưới 100KB
+                if (file.type && file.type.startsWith('image/')) {
+                  const img = new Image();
+                  img.onload = () => {
+                    const maxDim = 1000;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxDim || height > maxDim) {
+                      if (width > height) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                      } else {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                      }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.75));
+                  };
+                  img.onerror = () => resolve(result);
+                  img.src = result;
+                } else {
+                  // File âm thanh hoặc định dạng khác
+                  resolve(result);
+                }
+              };
               reader.readAsDataURL(file);
             });
             return jsonRes(200, { success: true, url: dataUrl });
@@ -739,6 +770,21 @@ export function setupGitHubPagesMock() {
       }
 
       if (letter) {
+        const isExpired = Boolean(letter.expiresAt && new Date(letter.expiresAt) < new Date());
+        if (isExpired) {
+          return jsonRes(410, {
+            success: false,
+            expired: true,
+            message: 'Lá thư này đã hết hạn lưu giữ và đã tan biến vào hư không ⏳',
+            meta: {
+              id: letter.id,
+              recipientName: letter.recipientName || 'bạn',
+              expiresAt: letter.expiresAt,
+              isExpired: true
+            }
+          });
+        }
+
         const normalizedTheme = letter.theme === 'love' ? 'cute' : (letter.theme || 'tet');
         return jsonRes(200, {
           success: true,
@@ -751,7 +797,8 @@ export function setupGitHubPagesMock() {
             theme: normalizedTheme,
             hasPassword: Boolean(letter.password || letter.letterPassword || letter.keyPassword),
             passwordHint: letter.passwordHint || '',
-            expiresAt: letter.expiresAt || null
+            expiresAt: letter.expiresAt || null,
+            isExpired: false
           }
         });
       }
@@ -793,6 +840,14 @@ export function setupGitHubPagesMock() {
       }
 
       if (letter) {
+        if (letter.expiresAt && new Date(letter.expiresAt) < new Date()) {
+          return jsonRes(410, {
+            success: false,
+            expired: true,
+            message: 'Lá thư này đã hết hạn lưu giữ và đã tan biến vào hư không ⏳'
+          });
+        }
+
         const targetPass = letter.password || letter.letterPassword || letter.keyPassword || '';
         if (targetPass && normalizeKey(targetPass) !== normalizeKey(body.password || '')) {
           return jsonRes(401, { success: false, message: 'Mật khẩu chưa đúng, thử lại nhé 💌' });

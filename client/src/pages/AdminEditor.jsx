@@ -156,8 +156,31 @@ export default function AdminEditor() {
           }
         })
         .catch((err) => console.error('Lỗi tải thư:', err));
+    } else {
+      // Khôi phục bản nháp nếu tạo thư mới
+      try {
+        const savedDraft = localStorage.getItem('admin_editor_draft');
+        if (savedDraft) {
+          const parsed = JSON.parse(savedDraft);
+          if (parsed && (parsed.recipientName || parsed.title || parsed.content?.greeting || (parsed.content?.paragraphs && parsed.content.paragraphs[0]))) {
+            setFormData(prev => ({ ...prev, ...parsed }));
+          }
+        }
+      } catch {}
     }
   }, [id, isEditing, adminToken, currentUser, navigate]);
+
+  // Tự động lưu bản nháp tạo mới sau 1.5s
+  useEffect(() => {
+    if (isEditing) return;
+    if (!formData.recipientName && !formData.title && !formData.content?.paragraphs?.[0]) return;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('admin_editor_draft', JSON.stringify(formData));
+      } catch {}
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [formData, isEditing]);
 
   // Dừng nhạc khi unmount
   useEffect(() => {
@@ -214,6 +237,9 @@ export default function AdminEditor() {
 
       const result = await res.json();
       if (res.ok && result.success) {
+        try {
+          localStorage.removeItem('admin_editor_draft');
+        } catch {}
         const saved = result.data || result.letter || payload;
         setCreatedLetter(saved);
       } else {

@@ -37,7 +37,7 @@ export default function MemberCompose() {
   // Form fields
   const [recipientName, setRecipientName] = useState('');
   const [recipientUsername, setRecipientUsername] = useState('');
-  const [selectedTheme, setSelectedTheme] = useState('love');
+  const [selectedTheme, setSelectedTheme] = useState('cute');
   const [title, setTitle] = useState('');
   const [greeting, setGreeting] = useState('');
   const [message, setMessage] = useState('');
@@ -47,6 +47,7 @@ export default function MemberCompose() {
   const [password, setPassword] = useState('');
   const [passwordHint, setPasswordHint] = useState('');
 
+  const [hasDraftRestored, setHasDraftRestored] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [createdLetter, setCreatedLetter] = useState(null);
@@ -56,6 +57,71 @@ export default function MemberCompose() {
       navigate('/login', { replace: true });
     }
   }, [user, navigate]);
+
+  // Khôi phục bản nháp thư tự động khi mở trang
+  useEffect(() => {
+    try {
+      const savedDraft = localStorage.getItem('member_compose_draft');
+      if (savedDraft) {
+        const draft = JSON.parse(savedDraft);
+        if (draft.recipientName || draft.message || draft.title) {
+          if (draft.recipientName) setRecipientName(draft.recipientName);
+          if (draft.recipientUsername) setRecipientUsername(draft.recipientUsername);
+          if (draft.selectedTheme) setSelectedTheme(draft.selectedTheme === 'love' ? 'cute' : draft.selectedTheme);
+          if (draft.title) setTitle(draft.title);
+          if (draft.greeting) setGreeting(draft.greeting);
+          if (draft.message) setMessage(draft.message);
+          if (draft.secretUnsaid) setSecretUnsaid(draft.secretUnsaid);
+          if (draft.finalThought) setFinalThought(draft.finalThought);
+          if (draft.hasPassword) setHasPassword(draft.hasPassword);
+          if (draft.password) setPassword(draft.password);
+          if (draft.passwordHint) setPasswordHint(draft.passwordHint);
+          setHasDraftRestored(true);
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Tự động lưu bản nháp sau mỗi 1s gõ phím
+  useEffect(() => {
+    if (!recipientName && !message && !title && !secretUnsaid && !finalThought) return;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('member_compose_draft', JSON.stringify({
+          recipientName,
+          recipientUsername,
+          selectedTheme,
+          title,
+          greeting,
+          message,
+          secretUnsaid,
+          finalThought,
+          hasPassword,
+          password,
+          passwordHint
+        }));
+      } catch {}
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [recipientName, recipientUsername, selectedTheme, title, greeting, message, secretUnsaid, finalThought, hasPassword, password, passwordHint]);
+
+  const handleClearDraft = () => {
+    soundEngine.playClickSound();
+    try {
+      localStorage.removeItem('member_compose_draft');
+    } catch {}
+    setRecipientName('');
+    setRecipientUsername('');
+    setTitle('');
+    setGreeting('');
+    setMessage('');
+    setSecretUnsaid('');
+    setFinalThought('');
+    setHasPassword(false);
+    setPassword('');
+    setPasswordHint('');
+    setHasDraftRestored(false);
+  };
 
   const handleToggleDarkMode = () => {
     soundEngine.playClickSound();
@@ -114,6 +180,9 @@ export default function MemberCompose() {
 
       const data = await res.json();
       if (res.ok && data.success) {
+        try {
+          localStorage.removeItem('member_compose_draft');
+        } catch {}
         setCreatedLetter(data.data);
       } else {
         setError(data.message || 'Lỗi khi gửi thư.');
@@ -185,6 +254,23 @@ export default function MemberCompose() {
             Thư của bạn sẽ được kèm nhạc nền du dương, phong bì mở ảo diệu và mã bảo mật riêng tư
           </p>
         </div>
+
+        {/* THÔNG BÁO BẢN NHÁP TỰ ĐỘNG */}
+        {hasDraftRestored && (
+          <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-400/30 text-amber-800 dark:text-amber-300 text-xs animate-fade-in">
+            <span className="flex items-center gap-1.5 font-medium">
+              <span>📝</span>
+              <span>Đã tự động khôi phục nội dung thư chưa gửi trước đó của bạn.</span>
+            </span>
+            <button
+              type="button"
+              onClick={handleClearDraft}
+              className="underline text-[11px] hover:opacity-80 cursor-pointer font-serif shrink-0"
+            >
+              Xóa bản nháp
+            </button>
+          </div>
+        )}
 
         {/* FORM SOẠN THƯ */}
         <form onSubmit={handleSubmit} className={`p-6 sm:p-8 rounded-3xl border space-y-6 ${cardCls}`}>

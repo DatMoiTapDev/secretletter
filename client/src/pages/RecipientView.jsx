@@ -48,7 +48,19 @@ export default function RecipientView({ previewData = null }) {
   const [fontSize, setFontSize] = useState('base');
   const [isDarkPaper, setIsDarkPaper] = useState(false);
   const [particlesActive, setParticlesActive] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(soundEngine.isMuted);
+  const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(false);
+
+  // Lắng nghe sự kiện trạng thái âm thanh từ soundEngine
+  useEffect(() => {
+    const handleSoundState = (e) => {
+      if (e.detail?.isBlocked !== undefined) {
+        setIsAutoplayBlocked(e.detail.isBlocked);
+      }
+    };
+    window.addEventListener('soundEngine:stateChange', handleSoundState);
+    return () => window.removeEventListener('soundEngine:stateChange', handleSoundState);
+  }, []);
 
   // Tải metadata từ API khi người nhận truy cập
   const fetchMeta = async () => {
@@ -60,6 +72,12 @@ export default function RecipientView({ previewData = null }) {
       if (cached) {
         const cLetter = JSON.parse(cached);
         if (cLetter) {
+          if (cLetter.expiresAt && new Date(cLetter.expiresAt) < new Date()) {
+            setMeta(cLetter);
+            setErrorCode('EXPIRED');
+            setLoading(false);
+            return;
+          }
           setMeta({
             id: cLetter.id,
             slug: cLetter.slug || cLetter.id,
@@ -68,7 +86,8 @@ export default function RecipientView({ previewData = null }) {
             introQuote: cLetter.introQuote || 'Có một vài điều mình muốn bạn đọc thật chậm...',
             theme: cLetter.theme || 'tet',
             hasPassword: Boolean(cLetter.hasPassword || cLetter.password),
-            passwordHint: cLetter.passwordHint || ''
+            passwordHint: cLetter.passwordHint || '',
+            expiresAt: cLetter.expiresAt || null
           });
           setLoading(false);
         }
@@ -82,9 +101,20 @@ export default function RecipientView({ previewData = null }) {
       const data = await res.json();
 
       if (!res.ok) {
-        if (res.status === 404) setErrorCode('NOT_FOUND');
-        else if (res.status === 410) setErrorCode('EXPIRED');
-        else setErrorCode('NOT_FOUND');
+        if (res.status === 410 || data.expired) {
+          setMeta(data.meta || null);
+          setErrorCode('EXPIRED');
+        } else if (res.status === 404) {
+          setErrorCode('NOT_FOUND');
+        } else {
+          setErrorCode('NOT_FOUND');
+        }
+        return;
+      }
+
+      if (data.meta?.isExpired) {
+        setMeta(data.meta);
+        setErrorCode('EXPIRED');
         return;
       }
 
@@ -115,6 +145,7 @@ export default function RecipientView({ previewData = null }) {
   const handleUnlockSubmit = async (enteredPassword) => {
     setIsUnlocking(true);
     setPasswordError('');
+    soundEngine.resumeBlockedMusic();
 
     // Nếu đang ở chế độ xem trước (preview trong Admin)
     if (previewData) {
@@ -139,6 +170,12 @@ export default function RecipientView({ previewData = null }) {
       const result = await res.json();
 
       if (!res.ok) {
+        if (res.status === 410 || result.expired) {
+          setErrorCode('EXPIRED');
+          setIsPasswordModalOpen(false);
+          setIsUnlocking(false);
+          return;
+        }
         setPasswordError(result.message || 'Hình như chưa đúng rồi... thử lại nhé 💌');
         setIsUnlocking(false);
         return;
@@ -162,11 +199,14 @@ export default function RecipientView({ previewData = null }) {
     // Kích hoạt phát nhạc nền fade-in
     if (letterData.music) {
       soundEngine.startBackgroundMusic(letterData.music);
+    } else {
+      soundEngine.resumeBlockedMusic();
     }
   };
 
   // Khi click vào mở khóa phong bì
   const handleOpenEnvelopeClick = () => {
+    soundEngine.resumeBlockedMusic();
     if (meta && !meta.hasPassword) {
       // Thư không có mật khẩu -> Mở trực tiếp
       handleUnlockSubmit('');
@@ -420,6 +460,24 @@ export default function RecipientView({ previewData = null }) {
           onThemeChange={(newTheme) => setOverrideThemeId(newTheme)}
           currentThemeId={overrideThemeId || meta.theme}
         />
+      )}
+
+      {/* 5. Nút hỗ trợ chạm bật nhạc nếu trình duyệt chặn autoplay */}
+      {isAutoplayBlocked && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-bounce">
+          <button
+            type="button"
+            onClick={() => {
+              soundEngine.resumeBlockedMusic();
+              setIsAutoplayBlocked(false);
+            }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-900/90 hover:bg-neutral-950 border border-amber-400/60 text-amber-300 font-serif text-xs shadow-2xl backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95"
+            title="Chạm để phát bài hát theo đúng cảm xúc của bức thư"
+          >
+            <Volume2 size={16} className="text-amber-400" />
+            <span>🎵 Chạm Để Bật Nhạc Nền</span>
+          </button>
+        </div>
       )}
     </div>
   );
