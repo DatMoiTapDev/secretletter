@@ -147,18 +147,35 @@ export function importSyncPayload(data) {
       }
     });
 
-    localStorage.setItem('gh_mock_users', JSON.stringify(Array.from(userMap.values())));
+    try {
+      localStorage.setItem('gh_mock_users', JSON.stringify(Array.from(userMap.values())));
+    } catch (e) {
+      console.warn('LocalStorage đầy hoặc bị giới hạn trên iOS khi lưu users:', e);
+    }
   }
 
   // 2. Nhập danh sách lá thư: Thay thế danh sách trên máy bằng dữ liệu chuẩn từ Cloud
   if (data.letters && Array.isArray(data.letters)) {
-    localStorage.setItem('gh_mock_letters', JSON.stringify(data.letters));
-    importedLetters = data.letters.length;
+    try {
+      localStorage.setItem('gh_mock_letters', JSON.stringify(data.letters));
+      importedLetters = data.letters.length;
+    } catch (e) {
+      console.warn('LocalStorage đầy trên iOS khi lưu letters:', e);
+      try {
+        // Nếu không đủ bộ nhớ, lưu 5 lá thư mới nhất
+        localStorage.setItem('gh_mock_letters', JSON.stringify(data.letters.slice(0, 5)));
+        importedLetters = Math.min(5, data.letters.length);
+      } catch {}
+    }
   }
 
   // 3. Nhập dữ liệu Vibe Hub: Thay thế dữ liệu trên máy bằng dữ liệu chuẩn từ Cloud
   if (data.vibe && typeof data.vibe === 'object') {
-    localStorage.setItem('gh_mock_vibe', JSON.stringify(data.vibe));
+    try {
+      localStorage.setItem('gh_mock_vibe', JSON.stringify(data.vibe));
+    } catch (e) {
+      console.warn('LocalStorage đầy trên iOS khi lưu vibe:', e);
+    }
   }
 
   return { success: true, importedUsers, importedLetters };
@@ -265,9 +282,12 @@ export function encryptVaultData(payload) {
     for (let i = 0; i < utf8Bytes.length; i++) {
       cipherBytes[i] = utf8Bytes[i] ^ keyBytes[i % keyBytes.length];
     }
+    // Ghép chuỗi nhị phân theo từng khối 8192 bytes tránh lỗi Call Stack Exceeded trên Safari iOS
     let binary = '';
-    for (let i = 0; i < cipherBytes.length; i++) {
-      binary += String.fromCharCode(cipherBytes[i]);
+    const CHUNK = 8192;
+    for (let i = 0; i < cipherBytes.length; i += CHUNK) {
+      const slice = cipherBytes.subarray(i, i + CHUNK);
+      binary += String.fromCharCode.apply(null, slice);
     }
     return btoa(binary);
   } catch (err) {
@@ -277,7 +297,7 @@ export function encryptVaultData(payload) {
 }
 
 /**
- * Giải mã dữ liệu an toàn từ Firebase về thiết bị
+ * Giải mã dữ liệu an toàn từ Firebase về thiết bị (Tối ưu hóa bộ nhớ cho iOS Safari)
  */
 export function decryptVaultData(cipherBase64) {
   try {
@@ -291,7 +311,7 @@ export function decryptVaultData(cipherBase64) {
     for (let i = 0; i < cipherBytes.length; i++) {
       plainBytes[i] = cipherBytes[i] ^ keyBytes[i % keyBytes.length];
     }
-    const jsonStr = new TextDecoder().decode(plainBytes);
+    const jsonStr = new TextDecoder('utf-8').decode(plainBytes);
     return JSON.parse(jsonStr);
   } catch (err) {
     console.warn('Lỗi giải mã dữ liệu Vault:', err);
