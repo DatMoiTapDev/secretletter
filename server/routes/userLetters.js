@@ -59,18 +59,23 @@ router.get('/inbox', (req, res) => {
     const isMine = l.senderId === req.user.id || (l.senderUsername && l.senderUsername.toLowerCase() === req.user.username.toLowerCase());
     if (isMine) return false;
 
-    // 1. Thư của admin mặc định gửi đến tất cả các tài khoản
-    const isAdminLetter = l.senderRole === 'admin' ||
-                          l.senderUsername === 'admin' ||
-                          l.senderUsername === 'tiendat' ||
-                          l.senderId === 'usr_tiendat_root' ||
-                          l.isBroadcast === true;
-    if (isAdminLetter) return true;
+    const targetUser = (l.recipientUsername || '').toLowerCase().trim();
 
-    // 2. Thư do thành viên khác gửi đích danh cho tài khoản này
-    const isSentToMe = (l.recipientUsername && l.recipientUsername.toLowerCase() === req.user.username.toLowerCase()) ||
-                       (l.recipientId && l.recipientId === req.user.id);
-    return Boolean(isSentToMe);
+    // 1. Thư gửi riêng đích danh cho tài khoản này (Dù Admin gửi hay Thành viên gửi)
+    const isSentToMe = (req.user.username && targetUser && targetUser === req.user.username.toLowerCase()) ||
+                       (req.user.id && l.recipientId && l.recipientId === req.user.id);
+    if (isSentToMe) return true;
+
+    // 2. Thư gửi đích danh cho một tài khoản khác -> TUYỆT ĐỐI KHÔNG HIỂN THỊ
+    if (targetUser !== '') {
+      return false;
+    }
+
+    // 3. Thư Broadcast toàn hệ thống (isBroadcast === true hoặc không chỉ định username riêng)
+    const isBroadcast = l.isBroadcast === true || (l.isBroadcast !== false && !targetUser);
+    if (isBroadcast) return true;
+
+    return false;
   });
 
   const sanitized = myInbox.map(({ passwordHash, ...rest }) => rest);

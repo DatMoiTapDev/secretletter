@@ -20,7 +20,11 @@ import {
   Sun,
   Moon,
   Volume2,
-  VolumeX
+  VolumeX,
+  Users,
+  Calendar,
+  Infinity as InfinityIcon,
+  ChevronDown
 } from 'lucide-react';
 import { THEME_LIST, getTheme } from '../types/theme';
 import { PRESET_TRACKS, soundEngine } from '../audio/soundEngine';
@@ -115,6 +119,23 @@ export default function AdminEditor() {
     },
     expiresAt: ''
   });
+
+  // Danh sách tài khoản hệ thống để gợi ý gửi thư
+  const [systemUsers, setSystemUsers] = useState([]);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [userSearchText, setUserSearchText] = useState('');
+
+  // Tải danh sách tài khoản thành viên hệ thống
+  useEffect(() => {
+    fetch('/api/admin/users')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setSystemUsers(data.data);
+        }
+      })
+      .catch((err) => console.warn('Không thể tải danh sách users:', err));
+  }, []);
 
   // Tải dữ liệu thư nếu đang ở chế độ chỉnh sửa
   useEffect(() => {
@@ -730,7 +751,7 @@ export default function AdminEditor() {
 
               <div>
                 <label className={labelCls}>
-                  Tài khoản người nhận (@username - Tùy chọn gửi vào Hòm Thư Đến)
+                  Tài khoản người nhận (@username - Gửi vào Hòm Thư Đến)
                 </label>
                 {isMemberMode ? (
                   <div>
@@ -746,43 +767,155 @@ export default function AdminEditor() {
                     </span>
                   </div>
                 ) : (
-                  <div className="space-y-2 mt-1">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 text-xs font-serif">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="adminSendScope"
-                          checked={formData.isBroadcast !== false}
-                          onChange={() => setFormData({ ...formData, isBroadcast: true, recipientUsername: '' })}
-                          className="accent-amber-500"
-                        />
-                        <span className="font-bold text-amber-700 dark:text-amber-400">Gửi đến tất cả tài khoản thành viên (Mặc định)</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="adminSendScope"
-                          checked={formData.isBroadcast === false}
-                          onChange={() => setFormData({ ...formData, isBroadcast: false })}
-                          className="accent-amber-500"
-                        />
-                        <span>Gửi riêng cho 1 tài khoản (@username)</span>
-                      </label>
+                  <div className="space-y-3 mt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-serif">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          soundEngine.playClickSound();
+                          setFormData({ ...formData, isBroadcast: true, recipientUsername: '' });
+                          setShowUserDropdown(false);
+                        }}
+                        className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                          formData.isBroadcast !== false
+                            ? 'bg-amber-500/10 border-amber-500 text-amber-700 dark:text-amber-300 ring-2 ring-amber-400/30'
+                            : isDarkMode
+                              ? 'bg-neutral-800/80 border-white/10 text-neutral-400 hover:text-white'
+                              : 'bg-stone-50 border-stone-200 text-stone-600 hover:text-stone-900'
+                        }`}
+                      >
+                        <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+                          <Users size={18} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm">Gửi toàn bộ hệ thống</p>
+                          <p className={`text-[11px] mt-0.5 ${isDarkMode ? 'text-neutral-400' : 'text-stone-500'}`}>
+                            Tất cả tài khoản thành viên đều xem được trong Hòm thư đến
+                          </p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          soundEngine.playClickSound();
+                          setFormData({ ...formData, isBroadcast: false });
+                          setShowUserDropdown(true);
+                        }}
+                        className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                          formData.isBroadcast === false
+                            ? 'bg-amber-500/10 border-amber-500 text-amber-700 dark:text-amber-300 ring-2 ring-amber-400/30'
+                            : isDarkMode
+                              ? 'bg-neutral-800/80 border-white/10 text-neutral-400 hover:text-white'
+                              : 'bg-stone-50 border-stone-200 text-stone-600 hover:text-stone-900'
+                        }`}
+                      >
+                        <div className="p-2 rounded-xl bg-sky-500/20 text-sky-600 dark:text-sky-400 shrink-0">
+                          <KeyRound size={18} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm">Gửi đến username cố định</p>
+                          <p className={`text-[11px] mt-0.5 ${isDarkMode ? 'text-neutral-400' : 'text-stone-500'}`}>
+                            Chỉ 1 tài khoản đích danh được nhận, không gửi toàn hệ thống
+                          </p>
+                        </div>
+                      </button>
                     </div>
+
                     {formData.isBroadcast === false && (
-                      <input
-                        type="text"
-                        value={formData.recipientUsername}
-                        onChange={(e) => setFormData({ ...formData, recipientUsername: e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '') })}
-                        placeholder="Nhập username tài khoản nhận..."
-                        className={`${inputCls} font-mono`}
-                      />
+                      <div className="relative mt-2">
+                        <label className={smallLabelCls}>
+                          Chọn hoặc nhập Username người nhận <span className="text-rose-400">*</span>:
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={formData.recipientUsername}
+                            onFocus={() => setShowUserDropdown(true)}
+                            onChange={(e) => {
+                              const val = e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '');
+                              setFormData({ ...formData, recipientUsername: val });
+                              setShowUserDropdown(true);
+                            }}
+                            placeholder="Gõ hoặc chọn username (VD: va123, phamle...)"
+                            className={`${inputCls} font-mono pr-10`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowUserDropdown(prev => !prev)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-neutral-400 hover:text-white cursor-pointer"
+                          >
+                            <ChevronDown size={16} />
+                          </button>
+                        </div>
+
+                        {showUserDropdown && (
+                          <div className={`absolute z-30 mt-1.5 w-full rounded-2xl border shadow-2xl max-h-56 overflow-y-auto p-1.5 backdrop-blur-md ${
+                            isDarkMode
+                              ? 'bg-neutral-900/95 border-white/15 divide-y divide-white/5'
+                              : 'bg-white/95 border-stone-200 divide-y divide-stone-100'
+                          }`}>
+                            <div className="px-3 py-1.5 text-[11px] font-sans text-neutral-400 flex items-center justify-between">
+                              <span>Danh sách tài khoản hiện có trong hệ thống ({systemUsers.length})</span>
+                              <button
+                                type="button"
+                                onClick={() => setShowUserDropdown(false)}
+                                className="text-amber-500 hover:underline cursor-pointer"
+                              >
+                                Đóng
+                              </button>
+                            </div>
+                            {systemUsers.length === 0 ? (
+                              <div className="p-3 text-center text-xs text-neutral-400">
+                                Đang tải danh sách tài khoản...
+                              </div>
+                            ) : (
+                              systemUsers
+                                .filter(u => !formData.recipientUsername || u.username.toLowerCase().includes(formData.recipientUsername.toLowerCase()) || (u.displayName && u.displayName.toLowerCase().includes(formData.recipientUsername.toLowerCase())))
+                                .map((u) => (
+                                  <div
+                                    key={u.id || u.username}
+                                    onClick={() => {
+                                      soundEngine.playClickSound();
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        recipientUsername: u.username,
+                                        recipientName: prev.recipientName ? prev.recipientName : (u.displayName || u.username)
+                                      }));
+                                      setShowUserDropdown(false);
+                                    }}
+                                    className={`p-2.5 rounded-xl flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                                      formData.recipientUsername === u.username
+                                        ? 'bg-amber-500/20 text-amber-500 font-bold'
+                                        : isDarkMode
+                                          ? 'hover:bg-white/10 text-neutral-200'
+                                          : 'hover:bg-amber-50 text-neutral-800'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2.5">
+                                      <span className="text-lg">{u.avatar || '🌸'}</span>
+                                      <div>
+                                        <p className="text-xs font-serif font-bold leading-tight">
+                                          {u.displayName || u.username}
+                                        </p>
+                                        <p className="text-[11px] font-mono opacity-70">
+                                          @{u.username}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-400/20">
+                                      Chọn
+                                    </span>
+                                  </div>
+                                ))
+                            )}
+                          </div>
+                        )}
+                        <span className={hintCls}>
+                          💡 Chọn đúng username để lá thư được gửi riêng tư đến duy nhất người đó.
+                        </span>
+                      </div>
                     )}
-                    <span className={hintCls}>
-                      {formData.isBroadcast !== false
-                        ? '📢 Thư của Admin sẽ tự động xuất hiện trong Hòm Thư Đến (Inbox) của tất cả các tài khoản thành viên.'
-                        : 'Chỉ tài khoản được chỉ định mới nhận được thư này trong Inbox.'}
-                    </span>
                   </div>
                 )}
               </div>
@@ -815,15 +948,74 @@ export default function AdminEditor() {
 
               <div>
                 <label className={labelCls}>
-                  Ngày hết hạn thư (Tùy chọn)
+                  Thời gian hết hạn thư
                 </label>
-                <input
-                  type="datetime-local"
-                  value={formData.expiresAt}
-                  onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
-                  className={inputCls}
-                />
-                <span className={hintCls}>Sau thời điểm này, người nhận sẽ thấy màn hình thông báo thư đã khép lại</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundEngine.playClickSound();
+                      setFormData({ ...formData, expiresAt: '' });
+                    }}
+                    className={`p-3 rounded-xl border flex items-center gap-2.5 transition-all cursor-pointer ${
+                      !formData.expiresAt
+                        ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-400/30 font-bold'
+                        : isDarkMode
+                          ? 'bg-neutral-800/80 border-white/10 text-neutral-400 hover:text-white'
+                          : 'bg-stone-50 border-stone-200 text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    <InfinityIcon size={18} className="text-emerald-500" />
+                    <div className="text-left">
+                      <p className="text-xs font-serif font-bold">Không thời hạn</p>
+                      <p className="text-[10px] opacity-75">Lưu giữ vĩnh viễn không bao giờ hết hạn</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundEngine.playClickSound();
+                      if (!formData.expiresAt) {
+                        const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                        const isoStr = in7Days.toISOString().substring(0, 16);
+                        setFormData({ ...formData, expiresAt: isoStr });
+                      }
+                    }}
+                    className={`p-3 rounded-xl border flex items-center gap-2.5 transition-all cursor-pointer ${
+                      formData.expiresAt
+                        ? 'bg-amber-500/15 border-amber-500 text-amber-700 dark:text-amber-300 ring-2 ring-amber-400/30 font-bold'
+                        : isDarkMode
+                          ? 'bg-neutral-800/80 border-white/10 text-neutral-400 hover:text-white'
+                          : 'bg-stone-50 border-stone-200 text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    <Calendar size={18} className="text-amber-500" />
+                    <div className="text-left">
+                      <p className="text-xs font-serif font-bold">Có thời hạn đóng thư</p>
+                      <p className="text-[10px] opacity-75">Tự động khép lại sau ngày đã chọn</p>
+                    </div>
+                  </button>
+                </div>
+
+                {formData.expiresAt && (
+                  <div className="mt-2">
+                    <input
+                      type="datetime-local"
+                      value={formData.expiresAt}
+                      onClick={(e) => {
+                        try {
+                          if (e.target && typeof e.target.showPicker === 'function') {
+                            e.target.showPicker();
+                          }
+                        } catch {}
+                      }}
+                      onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
+                      className={`${inputCls} cursor-pointer`}
+                    />
+                    <span className={hintCls}>Sau thời điểm này, người nhận sẽ thấy màn hình thông báo thư đã khép lại</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -468,9 +468,13 @@ export default function MemberDashboard() {
                             <span>{themeInfo.name}</span>
                           </span>
                           <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                            {letter.senderRole === 'admin' || letter.senderUsername === 'admin' || letter.senderUsername === 'tiendat' || letter.isBroadcast ? (
+                            {letter.isBroadcast || (!letter.recipientUsername && (letter.senderRole === 'admin' || letter.senderUsername === 'admin' || letter.senderUsername === 'tiendat')) ? (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-serif font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-400/30">
                                 👑 Từ Admin (Toàn hệ thống)
+                              </span>
+                            ) : (letter.senderRole === 'admin' || letter.senderUsername === 'admin' || letter.senderUsername === 'tiendat') ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-serif font-bold bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-400/30">
+                                👑 Từ Admin (Gửi riêng cho bạn)
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-400/30">

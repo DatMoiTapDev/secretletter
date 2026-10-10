@@ -797,21 +797,21 @@ export function setupGitHubPagesMock() {
                        (userName && l.senderUsername && l.senderUsername.toLowerCase() === userName);
         if (isMine) return false;
 
-        // 1. CÁC THƯ CỦA ADMIN MẶC ĐỊNH GỬI ĐẾN TẤT CẢ CÁC TÀI KHOẢN!
-        const isAdminLetter = l.senderRole === 'admin' ||
-                              l.senderUsername === 'admin' ||
-                              l.senderUsername === 'tiendat' ||
-                              l.senderId === 'usr_tiendat_root' ||
-                              l.isBroadcast === true;
-        if (isAdminLetter) return true;
+        const targetUser = (l.recipientUsername || '').toLowerCase().trim();
 
-        // 2. Thư của thành viên khác gửi đích danh cho tài khoản này (@username hoặc ID)
-        if (userName && l.recipientUsername && l.recipientUsername.toLowerCase() === userName) {
-          return true;
+        // 1. Thư gửi riêng đích danh cho tài khoản này (Dù Admin gửi hay Thành viên gửi)
+        const isSentToMe = (userName && targetUser && targetUser === userName) ||
+                           (userId && l.recipientId && l.recipientId === userId);
+        if (isSentToMe) return true;
+
+        // 2. Thư gửi đích danh cho một tài khoản khác -> TUYỆT ĐỐI KHÔNG HIỂN THỊ
+        if (targetUser !== '') {
+          return false;
         }
-        if (userId && l.recipientId && l.recipientId === userId) {
-          return true;
-        }
+
+        // 3. Thư Broadcast toàn hệ thống (isBroadcast === true hoặc không chỉ định username riêng)
+        const isBroadcast = l.isBroadcast === true || (l.isBroadcast !== false && !targetUser);
+        if (isBroadcast) return true;
 
         return false;
       });
