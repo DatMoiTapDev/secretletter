@@ -24,7 +24,8 @@ import {
   Users,
   Calendar,
   Infinity as InfinityIcon,
-  ChevronDown
+  ChevronDown,
+  AlertCircle
 } from 'lucide-react';
 import { THEME_LIST, getTheme } from '../types/theme';
 import { PRESET_TRACKS, soundEngine } from '../audio/soundEngine';
@@ -79,6 +80,26 @@ export default function AdminEditor() {
   const [saving, setSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [playingPreviewMusic, setPlayingPreviewMusic] = useState(false);
+
+  // Quản lý trạng thái bản nháp cách ly theo tài khoản và thư
+  const [draftStatus, setDraftStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
+  const [lastDraftSaved, setLastDraftSaved] = useState('');
+  const [isDirty, setIsDirty] = useState(false);
+  const draftKey = isEditing
+    ? (isMemberMode ? `draft_edit_${currentUser?.id}_${id}` : `draft_edit_admin_${id}`)
+    : (isMemberMode ? `draft_compose_${currentUser?.id}_new` : 'draft_compose_admin_new');
+
+  // Cảnh báo trước khi rời trang nếu còn thay đổi chưa lưu
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isDirty && !createdLetter) {
+        e.preventDefault();
+        e.returnValue = 'Bạn có thay đổi chưa lưu trên lá thư. Bạn có chắc muốn rời đi?';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty, createdLetter]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -178,30 +199,42 @@ export default function AdminEditor() {
         })
         .catch((err) => console.error('Lỗi tải thư:', err));
     } else {
-      // Khôi phục bản nháp nếu tạo thư mới
+      // Khôi phục bản nháp cách ly theo tài khoản và thư
       try {
-        const savedDraft = localStorage.getItem('admin_editor_draft');
+        let savedDraft = localStorage.getItem(draftKey);
+        if (!savedDraft) {
+          savedDraft = localStorage.getItem('admin_editor_draft');
+        }
         if (savedDraft) {
           const parsed = JSON.parse(savedDraft);
           if (parsed && (parsed.recipientName || parsed.title || parsed.content?.greeting || (parsed.content?.paragraphs && parsed.content.paragraphs[0]))) {
             setFormData(prev => ({ ...prev, ...parsed }));
+            setDraftStatus('saved');
+            setLastDraftSaved('Đã khôi phục');
           }
         }
       } catch {}
     }
-  }, [id, isEditing, adminToken, currentUser, navigate]);
+  }, [id, isEditing, adminToken, currentUser, navigate, draftKey]);
 
   // Tự động lưu bản nháp tạo mới sau 1.5s
   useEffect(() => {
     if (isEditing) return;
     if (!formData.recipientName && !formData.title && !formData.content?.paragraphs?.[0]) return;
+    setIsDirty(true);
+    setDraftStatus('saving');
     const timer = setTimeout(() => {
       try {
-        localStorage.setItem('admin_editor_draft', JSON.stringify(formData));
-      } catch {}
+        localStorage.setItem(draftKey, JSON.stringify(formData));
+        setDraftStatus('saved');
+        const now = new Date();
+        setLastDraftSaved(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`);
+      } catch {
+        setDraftStatus('error');
+      }
     }, 1500);
     return () => clearTimeout(timer);
-  }, [formData, isEditing]);
+  }, [formData, isEditing, draftKey]);
 
   // Dừng nhạc khi unmount
   useEffect(() => {
@@ -285,8 +318,11 @@ export default function AdminEditor() {
 
       if (result && result.success) {
         try {
+          localStorage.removeItem(draftKey);
           localStorage.removeItem('admin_editor_draft');
         } catch {}
+        setIsDirty(false);
+        setDraftStatus('idle');
         const saved = result.data || result.letter || payload;
         setCreatedLetter(saved);
       } else {
@@ -316,10 +352,22 @@ export default function AdminEditor() {
     });
   };
 
-  // Xử lý upload ảnh
+  // Xử lý upload ảnh với kiểm tra giới hạn dung lượng & định dạng
   const handleFileUpload = async (e, type = 'image') => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (type === 'image' && !file.type.startsWith('image/')) {
+      alert('Tệp tải lên không phải là định dạng hình ảnh hợp lệ.');
+      return;
+    }
+
+    const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_SIZE_BYTES) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      alert(`Dung lượng tệp vượt quá giới hạn 10MB (${sizeMB}MB). Vui lòng chọn tệp dung lượng nhẹ hơn.`);
+      return;
+    }
 
     const data = new FormData();
     data.append('file', file);
@@ -674,6 +722,54 @@ export default function AdminEditor() {
             </button>
           </div>
         </header>
+
+        {/* BẢNG TRẠNG THÁI BẢN NHÁP */}
+        <div className="flex items-center justify-between text-xs font-serif px-1 -mt-4">
+          <div className="flex items-center gap-2">
+            {draftStatus === 'saving' && (
+              <span className="inline-flex items-center gap-1.5 text-amber-500 font-medium animate-pulse">
+                <Sparkles size={13} />
+                <span>Đang lưu bản nháp cục bộ...</span>
+              </span>
+            )}
+            {draftStatus === 'saved' && (
+              <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                <CheckCircle size={13} />
+                <span>Bản nháp đã lưu tự động {lastDraftSaved ? `(${lastDraftSaved})` : ''}</span>
+              </span>
+            )}
+            {draftStatus === 'error' && (
+              <span className="inline-flex items-center gap-1.5 text-rose-500 font-medium">
+                <AlertCircle size={13} />
+                <span>Lỗi lưu bản nháp trên bộ nhớ trình duyệt</span>
+              </span>
+            )}
+          </div>
+          {!isEditing && (formData.recipientName || formData.title || formData.content?.paragraphs?.[0]) && (
+            <button
+              type="button"
+              onClick={() => {
+                soundEngine.playClickSound();
+                try {
+                  localStorage.removeItem(draftKey);
+                  localStorage.removeItem('admin_editor_draft');
+                } catch {}
+                setFormData(prev => ({
+                  ...prev,
+                  recipientName: '',
+                  title: '',
+                  content: { greeting: '', paragraphs: [''], quotes: [] }
+                }));
+                setIsDirty(false);
+                setDraftStatus('idle');
+                setLastDraftSaved('');
+              }}
+              className="text-neutral-400 hover:text-rose-500 text-[11px] underline cursor-pointer"
+            >
+              Xóa nháp
+            </button>
+          )}
+        </div>
 
         {/* CÁC TABS CẤU HÌNH */}
         <div className={`flex items-center gap-2 overflow-x-auto pb-2 border-b ${

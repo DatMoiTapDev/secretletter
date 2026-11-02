@@ -16,7 +16,9 @@ export default function ReadingToolbar({
   isDarkMode = false,
   onToggleDarkMode,
   onThemeChange,
-  currentThemeId
+  currentThemeId,
+  focusMode = false,
+  onToggleFocusMode
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -175,7 +177,29 @@ export default function ReadingToolbar({
             </button>
           </div>
 
-          {/* 5. Hiệu ứng hạt rơi */}
+          {/* 5. Chế độ đọc tập trung (Zen Focus Mode) */}
+          {onToggleFocusMode && (
+            <div className="flex items-center justify-between text-xs text-neutral-300">
+              <span>Chế độ tập trung</span>
+              <button
+                type="button"
+                aria-label="Bật hoặc tắt chế độ đọc tập trung"
+                onClick={() => {
+                  soundEngine.playClickSound();
+                  onToggleFocusMode();
+                }}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
+                  focusMode
+                    ? 'bg-amber-500/25 text-amber-300 border-amber-400/40 shadow-xs'
+                    : 'bg-neutral-800 text-neutral-300 border-white/10 hover:bg-neutral-700'
+                }`}
+              >
+                <span>{focusMode ? 'Đang bật 🧘' : 'Tắt'}</span>
+              </button>
+            </div>
+          )}
+
+          {/* 6. Hiệu ứng hạt rơi */}
           <div className="flex items-center justify-between text-xs text-neutral-300">
             <span>Hiệu ứng hạt rơi</span>
             <button

@@ -44,3 +44,10 @@ scratch/
 tmp/
 temp/
 *.tmp
+backups/
+
+# Firebase & Secret Credentials
+*serviceAccount*.json
+*service-account*.json
+*.pem
+*.key

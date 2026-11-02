@@ -11,37 +11,40 @@ export default function LetterReader({
   letter,
   theme,
   fontSize = 'base',
-  isDarkPaper = false
+  isDarkPaper = false,
+  focusMode = false
 }) {
   const [isSlowReading, setIsSlowReading] = useState(false);
-  const content = letter.content || {};
-  const greeting = content.greeting || `Gửi ${letter.recipientName || 'bạn'},`;
+  const content = letter?.content || {};
+  const greeting = content.greeting || `Gửi ${letter?.recipientName || 'bạn'},`;
   const paragraphs = content.paragraphs || [];
   const quotes = content.quotes || [];
-  const photos = letter.photos || [];
-  const gift = letter.gift || null;
+  const photos = letter?.photos || [];
+  const gift = letter?.gift || null;
 
-  // Font size class mapper
+  // Font size class mapper với line-height tối ưu cho khả năng đọc lâu
   const fontSizeClasses = {
     sm: 'text-sm sm:text-base leading-relaxed',
-    base: 'text-base sm:text-lg leading-relaxed',
-    lg: 'text-lg sm:text-xl leading-relaxed',
-    xl: 'text-xl sm:text-2xl leading-relaxed'
+    base: 'text-base sm:text-lg leading-relaxed sm:leading-loose',
+    lg: 'text-lg sm:text-xl leading-relaxed sm:leading-loose',
+    xl: 'text-xl sm:text-2xl leading-relaxed sm:leading-loose'
   };
 
   const currentFontSize = fontSizeClasses[fontSize] || fontSizeClasses.base;
 
-  // Paper styling class
+  // Paper styling class với tỷ lệ tương phản chuẩn mực (WCAG AAA)
   const paperBgClass = isDarkPaper
-    ? 'paper-dark text-neutral-100 border-white/10'
-    : 'paper-parchment text-neutral-900 border-amber-900/15';
+    ? 'paper-dark text-[#f5f0e8] border-white/10'
+    : 'paper-parchment text-[#261c14] border-amber-900/15';
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-6 sm:py-16 select-text">
+    <div className={`w-full mx-auto px-3 sm:px-4 py-6 sm:py-14 select-text transition-all duration-500 ${
+      focusMode ? 'max-w-2xl' : 'max-w-3xl'
+    }`}>
       
       {/* KHỐI TRANG GIẤY LÁ THƯ (The Main Paper Sheet) */}
       <div 
-        className={`relative rounded-3xl p-5 sm:p-12 md:p-16 border shadow-2xl transition-colors duration-500 ${paperBgClass}`}
+        className={`relative rounded-3xl p-5 sm:p-12 md:p-16 border shadow-2xl transition-all duration-500 ${paperBgClass}`}
       >
         {/* Họa tiết viền chỉ vàng tinh tế trên trang giấy */}
         <div className="absolute inset-2.5 sm:inset-4 rounded-2xl border border-amber-500/20 pointer-events-none" />

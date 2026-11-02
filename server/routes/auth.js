@@ -1,12 +1,14 @@
 import express from 'express';
 import { authenticateMember, getUserById } from '../userDb.js';
 import { authRateLimiter } from '../security.js';
+import { createFirebaseCustomToken } from '../auth.js';
 
 const router = express.Router();
 
 /**
  * POST /api/auth/login
  * Đăng nhập thành viên (có bảo vệ chống brute force)
+ * Cung cấp Firebase Custom Token chính thức cho client
  */
 router.post('/login', authRateLimiter, async (req, res) => {
   const { username, password } = req.body;
@@ -24,15 +26,47 @@ router.post('/login', authRateLimiter, async (req, res) => {
     // Tạo token phiên đăng nhập đơn giản an toàn
     const sessionToken = `usr_token_${result.user.id}_${Date.now()}`;
 
+    // Cấp phát Firebase Custom Token chính thức
+    const firebaseCustomToken = createFirebaseCustomToken({
+      uid: result.user.id,
+      username: result.user.username,
+      role: result.user.role || 'member'
+    });
+
     return res.json({
       success: true,
       user: result.user,
-      token: sessionToken
+      token: sessionToken,
+      firebaseCustomToken
     });
   } catch (err) {
     console.error('Lỗi đăng nhập thành viên:', err);
     return res.status(500).json({ success: false, message: 'Lỗi hệ thống máy chủ.' });
   }
+});
+
+/**
+ * POST /api/auth/firebase-custom-token
+ * Cấp phát Firebase Custom Token khi có phiên đăng nhập hợp lệ
+ */
+router.post('/firebase-custom-token', authRateLimiter, async (req, res) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'Chưa đăng nhập.' });
+  }
+
+  const user = getUserById(userId);
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản.' });
+  }
+
+  const firebaseCustomToken = createFirebaseCustomToken({
+    uid: user.id,
+    username: user.username,
+    role: user.role || 'member'
+  });
+
+  return res.json({ success: true, firebaseCustomToken });
 });
 
 /**

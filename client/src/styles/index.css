@@ -7,6 +7,19 @@
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
   }
+  body {
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  /* Chống iOS Safari tự động zoom trang khi người dùng focus vào ô nhập liệu */
+  @media screen and (max-width: 768px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
 }
 
 /* 3D Envelope Perspective and Geometry */

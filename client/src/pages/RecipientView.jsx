@@ -43,13 +43,39 @@ export default function RecipientView({ previewData = null }) {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isAnimationDone, setIsAnimationDone] = useState(false);
 
-  // State tùy chỉnh đọc thư
+  // State tùy chỉnh đọc thư (đọc và lưu tự động vào LocalStorage)
+  const [readerPrefs] = useState(() => {
+    try {
+      const saved = localStorage.getItem('letter_reader_prefs');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      fontSize: 'base',
+      isDarkPaper: false,
+      particlesActive: true,
+      focusMode: false
+    };
+  });
+
   const [overrideThemeId, setOverrideThemeId] = useState(null);
-  const [fontSize, setFontSize] = useState('base');
-  const [isDarkPaper, setIsDarkPaper] = useState(false);
-  const [particlesActive, setParticlesActive] = useState(true);
+  const [fontSize, setFontSize] = useState(readerPrefs.fontSize || 'base');
+  const [isDarkPaper, setIsDarkPaper] = useState(Boolean(readerPrefs.isDarkPaper));
+  const [particlesActive, setParticlesActive] = useState(readerPrefs.particlesActive !== false);
+  const [focusMode, setFocusMode] = useState(Boolean(readerPrefs.focusMode));
   const [isMuted, setIsMuted] = useState(soundEngine.isMuted);
   const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(false);
+
+  // Lưu tùy chọn đọc vào LocalStorage để không phải chỉnh lại mỗi lần
+  useEffect(() => {
+    try {
+      localStorage.setItem('letter_reader_prefs', JSON.stringify({
+        fontSize,
+        isDarkPaper,
+        particlesActive,
+        focusMode
+      }));
+    } catch {}
+  }, [fontSize, isDarkPaper, particlesActive, focusMode]);
 
   // Lắng nghe sự kiện trạng thái âm thanh từ soundEngine
   useEffect(() => {
@@ -270,7 +296,7 @@ export default function RecipientView({ previewData = null }) {
       />
 
       {/* 2. Thanh điều hướng / Thanh tắt trở lại tác vụ */}
-      {!previewData && (
+      {!previewData && !focusMode && (
         <header className={`relative z-40 w-full max-w-5xl mx-auto px-4 pt-4 pb-2 flex items-center justify-between transition-colors ${
           isDark ? '' : 'text-neutral-900'
         }`}>
@@ -387,41 +413,57 @@ export default function RecipientView({ previewData = null }) {
           // Màn hình 2: Trình đọc lá thư đã mở với nội dung cuộn mượt mà
           <div className="w-full animate-fade-in flex flex-col items-center">
             {/* Thanh điều khiển phụ khi đang đọc thư */}
-            <div className="w-full max-w-3xl px-4 pt-2 pb-4 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={handleReopenEnvelope}
-                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-serif backdrop-blur-md transition-all cursor-pointer ${
-                  isDark
-                    ? 'bg-neutral-900/80 hover:bg-neutral-800 text-amber-300 border border-amber-400/30'
-                    : 'bg-white/85 hover:bg-white text-neutral-800 hover:text-neutral-950 border border-neutral-300 shadow-sm'
-                }`}
-                title="Khép lại để xem phong bì"
-              >
-                <RotateCcw size={13} />
-                <span>Khép lại phong bì</span>
-              </button>
+            {!focusMode && (
+              <div className="w-full max-w-3xl px-4 pt-2 pb-4 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleReopenEnvelope}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-serif backdrop-blur-md transition-all cursor-pointer ${
+                    isDark
+                      ? 'bg-neutral-900/80 hover:bg-neutral-800 text-amber-300 border border-amber-400/30'
+                      : 'bg-white/85 hover:bg-white text-neutral-800 hover:text-neutral-950 border border-neutral-300 shadow-sm'
+                  }`}
+                  title="Khép lại để xem phong bì"
+                >
+                  <RotateCcw size={13} />
+                  <span>Khép lại phong bì</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={handleBack}
-                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-serif backdrop-blur-md transition-all cursor-pointer ${
-                  isDark
-                    ? 'bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white border border-white/15'
-                    : 'bg-white/85 hover:bg-white text-neutral-700 hover:text-neutral-950 border border-neutral-300 shadow-sm'
-                }`}
-                title="Đóng thư và trở lại tác vụ trước"
-              >
-                <X size={13} />
-                <span>Đóng & Trở lại tác vụ</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-serif backdrop-blur-md transition-all cursor-pointer ${
+                    isDark
+                      ? 'bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white border border-white/15'
+                      : 'bg-white/85 hover:bg-white text-neutral-700 hover:text-neutral-950 border border-neutral-300 shadow-sm'
+                  }`}
+                  title="Đóng thư và trở lại tác vụ trước"
+                >
+                  <X size={13} />
+                  <span>Đóng & Trở lại tác vụ</span>
+                </button>
+              </div>
+            )}
+
+            {/* Nút thoát chế độ tập trung */}
+            {focusMode && (
+              <div className="w-full max-w-3xl px-4 pt-4 pb-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setFocusMode(false)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-neutral-900/85 hover:bg-neutral-800 text-amber-300 border border-amber-400/30 text-xs font-serif backdrop-blur-md shadow-lg transition-transform hover:scale-105 cursor-pointer"
+                >
+                  <span>Thoát chế độ tập trung ✕</span>
+                </button>
+              </div>
+            )}
 
             <LetterReader
               letter={unlockedLetter}
               theme={currentTheme}
               fontSize={fontSize}
               isDarkPaper={isDarkPaper}
+              focusMode={focusMode}
             />
           </div>
         )}
@@ -461,6 +503,8 @@ export default function RecipientView({ previewData = null }) {
           }}
           onThemeChange={(newTheme) => setOverrideThemeId(newTheme)}
           currentThemeId={overrideThemeId || meta.theme}
+          focusMode={focusMode}
+          onToggleFocusMode={() => setFocusMode(!focusMode)}
         />
       )}
 

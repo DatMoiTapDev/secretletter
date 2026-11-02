@@ -8,7 +8,7 @@
  * - Tích hợp điều khiển âm lượng, chuyển đổi Mute, và Fade-in mượt mà
  */
 
-const RAW_BASE = import.meta.env.BASE_URL || '/';
+const RAW_BASE = import.meta.env?.BASE_URL || '/';
 const AUDIO_BASE = RAW_BASE.endsWith('/') ? RAW_BASE : `${RAW_BASE}/`;
 
 export const TRACK_URLS = {
@@ -40,6 +40,69 @@ class SoundEngine {
     this.isAutoplayBlocked = false;
     this.currentTrack = null;
     this.fadeInterval = null;
+    this.wasPlayingBeforeHidden = false;
+
+    if (typeof window !== 'undefined') {
+      this.setupVisibilityHandler();
+      this.setupIOSGestureUnlock();
+    }
+  }
+
+  // Lắng nghe sự kiện chuyển tab: tạm dừng khi tab ẩn và tiếp tục khi quay lại
+  setupVisibilityHandler() {
+    if (typeof document === 'undefined') return;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (this.isPlaying && this.htmlAudio && !this.htmlAudio.paused) {
+          this.wasPlayingBeforeHidden = true;
+          this.htmlAudio.pause();
+        }
+      } else {
+        if (this.wasPlayingBeforeHidden && this.htmlAudio && !this.isMuted) {
+          this.wasPlayingBeforeHidden = false;
+          const playPromise = this.htmlAudio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(() => {
+              this.isAutoplayBlocked = true;
+            });
+          }
+        }
+        if (this.audioCtx && this.audioCtx.state === 'suspended') {
+          this.audioCtx.resume().catch(() => {});
+        }
+      }
+    });
+  }
+
+  // Tự động mở khóa Web Audio và HTMLAudio trên Safari iOS ngay lần chạm đầu tiên
+  setupIOSGestureUnlock() {
+    if (typeof window === 'undefined') return;
+    const unlockHandler = () => {
+      this.initContext();
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+      // Tạo một buffer ngắn 1 sample để kích hoạt engine audio trên Safari
+      try {
+        if (this.audioCtx) {
+          const buffer = this.audioCtx.createBuffer(1, 1, 22050);
+          const source = this.audioCtx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(this.audioCtx.destination);
+          source.start(0);
+        }
+      } catch {}
+
+      window.removeEventListener('touchstart', unlockHandler, true);
+      window.removeEventListener('touchend', unlockHandler, true);
+      window.removeEventListener('pointerdown', unlockHandler, true);
+      window.removeEventListener('click', unlockHandler, true);
+    };
+
+    window.addEventListener('touchstart', unlockHandler, { capture: true, passive: true });
+    window.addEventListener('touchend', unlockHandler, { capture: true, passive: true });
+    window.addEventListener('pointerdown', unlockHandler, { capture: true, passive: true });
+    window.addEventListener('click', unlockHandler, { capture: true, passive: true });
   }
 
   // Khởi tạo AudioContext cho hiệu ứng tương tác (chạm nút, bóc seal)

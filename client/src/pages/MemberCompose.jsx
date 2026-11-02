@@ -23,12 +23,15 @@ import {
   Infinity as InfinityIcon,
   HelpCircle,
   KeyRound,
-  RotateCcw
+  RotateCcw,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { THEMES, THEME_LIST, getTheme } from '../types/theme';
 import { soundEngine } from '../audio/soundEngine';
 import ShareModal from '../components/ShareModal';
 import RecipientView from './RecipientView';
+import { OfflineNoticeBanner } from '../components/ErrorScreens';
 
 // Ngân hàng gợi ý ý tưởng tâm tình theo chủ đề (Emotional Prompts Bank)
 const EMOTIONAL_PROMPTS = {
@@ -118,17 +121,49 @@ export default function MemberCompose() {
   const [passwordHint, setPasswordHint] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
 
+  // Trạng thái bản nháp & Lưu trữ cục bộ cách ly theo tài khoản
+  const [draftStatus, setDraftStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
+  const [lastDraftSaved, setLastDraftSaved] = useState('');
+  const [isDirty, setIsDirty] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
   // Hệ thống người dùng gợi ý
   const [systemUsers, setSystemUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [createdLetter, setCreatedLetter] = useState(null);
 
+  const draftKey = user?.id ? `draft_compose_${user.id}_new` : 'draft_compose_guest_new';
+
   useEffect(() => {
     if (!user || !user.id) {
       navigate('/login', { replace: true });
     }
   }, [user, navigate]);
+
+  // Theo dõi trạng thái kết nối mạng
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Cảnh báo người dùng trước khi rời trang nếu còn thay đổi chưa lưu
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isDirty && !createdLetter) {
+        e.preventDefault();
+        e.returnValue = 'Bạn có thay đổi chưa hoàn tất trong bức thư. Bạn có chắc muốn rời đi?';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty, createdLetter]);
 
   // Tải danh sách người dùng để gợi ý
   useEffect(() => {
@@ -142,10 +177,13 @@ export default function MemberCompose() {
       .catch(() => {});
   }, [user]);
 
-  // Khôi phục bản nháp nếu có
+  // Khôi phục bản nháp cách ly theo người dùng
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('member_compose_draft_v2');
+      let saved = localStorage.getItem(draftKey);
+      if (!saved) {
+        saved = localStorage.getItem('member_compose_draft_v2');
+      }
       if (saved) {
         const d = JSON.parse(saved);
         if (d.recipientName) setRecipientName(d.recipientName);
@@ -167,16 +205,20 @@ export default function MemberCompose() {
         if (d.password) setPassword(d.password);
         if (d.passwordHint) setPasswordHint(d.passwordHint);
         if (d.expiresAt) setExpiresAt(d.expiresAt);
+        setDraftStatus('saved');
+        setLastDraftSaved('Đã khôi phục');
       }
     } catch {}
-  }, []);
+  }, [draftKey]);
 
   // Tự động lưu bản nháp mỗi 1.2s
   useEffect(() => {
     if (!recipientName && !message && !title) return;
+    setIsDirty(true);
+    setDraftStatus('saving');
     const timer = setTimeout(() => {
       try {
-        localStorage.setItem('member_compose_draft_v2', JSON.stringify({
+        localStorage.setItem(draftKey, JSON.stringify({
           recipientName,
           recipientUsername,
           selectedTheme,
@@ -197,14 +239,20 @@ export default function MemberCompose() {
           passwordHint,
           expiresAt
         }));
-      } catch {}
+        setDraftStatus('saved');
+        const now = new Date();
+        setLastDraftSaved(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`);
+      } catch {
+        setDraftStatus('error');
+      }
     }, 1200);
     return () => clearTimeout(timer);
-  }, [recipientName, recipientUsername, selectedTheme, waxMonogram, title, greeting, message, photos, secretUnsaid, finalThought, giftEnabled, giftTitle, giftMessage, giftQrUrl, giftVoucherCode, hasPassword, password, passwordHint, expiresAt]);
+  }, [draftKey, recipientName, recipientUsername, selectedTheme, waxMonogram, title, greeting, message, photos, secretUnsaid, finalThought, giftEnabled, giftTitle, giftMessage, giftQrUrl, giftVoucherCode, hasPassword, password, passwordHint, expiresAt]);
 
   const handleClearDraft = () => {
     soundEngine.playClickSound();
     try {
+      localStorage.removeItem(draftKey);
       localStorage.removeItem('member_compose_draft_v2');
     } catch {}
     setRecipientName('');
@@ -222,6 +270,9 @@ export default function MemberCompose() {
     setPassword('');
     setPasswordHint('');
     setExpiresAt('');
+    setIsDirty(false);
+    setDraftStatus('idle');
+    setLastDraftSaved('');
   };
 
   const handleToggleDarkMode = () => {
@@ -234,12 +285,28 @@ export default function MemberCompose() {
     setSelectedTheme(themeId);
   };
 
-  // Nén ảnh thông minh bằng Canvas (< 40KB)
+  // Nén ảnh thông minh bằng Canvas (< 40KB) với kiểm tra dung lượng & định dạng
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!file.type.startsWith('image/')) {
+      setError('Tệp tải lên không phải hình ảnh hợp lệ (PNG, JPG, WEBP).');
+      e.target.value = '';
+      return;
+    }
+
+    const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_SIZE_BYTES) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      setError(`Dung lượng ảnh vượt quá giới hạn 10MB (${sizeMB}MB). Vui lòng chọn ảnh nhẹ hơn.`);
+      e.target.value = '';
+      return;
+    }
+
+    setError('');
     soundEngine.playClickSound();
+    const origSizeKB = Math.round(file.size / 1024);
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
@@ -262,7 +329,7 @@ export default function MemberCompose() {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
         const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        setPhotos(prev => [...prev, { url: compressedDataUrl, caption: '' }]);
+        setPhotos(prev => [...prev, { url: compressedDataUrl, caption: '', sizeKB: origSizeKB }]);
       };
       img.src = event.target.result;
     };
@@ -275,6 +342,20 @@ export default function MemberCompose() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!file.type.startsWith('image/')) {
+      setError('Mã QR tải lên phải là tệp hình ảnh.');
+      e.target.value = '';
+      return;
+    }
+
+    const MAX_SIZE_BYTES = 10 * 1024 * 1024;
+    if (file.size > MAX_SIZE_BYTES) {
+      setError('Dung lượng ảnh QR vượt quá 10MB. Vui lòng chọn ảnh nhẹ hơn.');
+      e.target.value = '';
+      return;
+    }
+
+    setError('');
     soundEngine.playClickSound();
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -388,8 +469,11 @@ export default function MemberCompose() {
       const data = await res.json();
       if (res.ok && data.success) {
         try {
+          localStorage.removeItem(draftKey);
           localStorage.removeItem('member_compose_draft_v2');
         } catch {}
+        setIsDirty(false);
+        setDraftStatus('idle');
         setCreatedLetter(data.data || data.letter || payload);
       } else {
         setError(data.message || 'Lỗi khi gửi thư.');
@@ -486,14 +570,50 @@ export default function MemberCompose() {
           </div>
         </div>
 
-        {/* TIÊU ĐỀ CHÍNH */}
-        <div className="text-center space-y-1">
+        {/* THANH THÔNG BÁO NGOẠI TUYẾN / CHỜ ĐỒNG BỘ */}
+        <OfflineNoticeBanner isOffline={isOffline} pendingSync={Boolean(localStorage.getItem('gh_pending_sync'))} />
+
+        {/* TIÊU ĐỀ CHÍNH & TRẠNG THÁI BẢN NHÁP */}
+        <div className="text-center space-y-2">
           <h1 className="text-2xl sm:text-3xl font-serif font-bold text-amber-700 dark:text-amber-400">
             Soạn Bức Thư Tâm Tình
           </h1>
           <p className={`text-xs max-w-md mx-auto ${isDarkMode ? 'text-neutral-400' : 'text-stone-500'}`}>
             Trao gửi những điều chân thành nhất đến người bạn trân quý 💌
           </p>
+
+          {/* DRAFT AUTOSAVE STATUS BADGE */}
+          <div className="flex items-center justify-center gap-3 pt-1 text-xs font-serif">
+            {draftStatus === 'saving' && (
+              <span className="inline-flex items-center gap-1.5 text-amber-500 font-medium animate-pulse">
+                <Sparkles size={13} />
+                <span>Đang lưu bản nháp...</span>
+              </span>
+            )}
+            {draftStatus === 'saved' && (
+              <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                <CheckCircle2 size={13} />
+                <span>Bản nháp đã lưu tự động {lastDraftSaved ? `(${lastDraftSaved})` : ''}</span>
+              </span>
+            )}
+            {draftStatus === 'error' && (
+              <span className="inline-flex items-center gap-1.5 text-rose-500 font-medium">
+                <AlertCircle size={13} />
+                <span>Không thể lưu bản nháp trên bộ nhớ trình duyệt</span>
+              </span>
+            )}
+            {(recipientName || message || title) && (
+              <button
+                type="button"
+                onClick={handleClearDraft}
+                className="inline-flex items-center gap-1 text-[11px] text-neutral-400 hover:text-rose-500 underline transition-colors cursor-pointer ml-1"
+                title="Xóa trắng bản nháp hiện tại"
+              >
+                <Trash2 size={11} />
+                <span>Xóa nháp</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* NẾU ĐANG BẬT LIVE PREVIEW */}
@@ -761,6 +881,11 @@ export default function MemberCompose() {
                           </button>
 
                           <img src={p.url} alt="Kỷ niệm" className="w-full h-36 object-cover rounded-xl" />
+                          {p.sizeKB && (
+                            <span className="absolute top-4 left-4 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md backdrop-blur-xs font-mono">
+                              {p.sizeKB > 1024 ? `${(p.sizeKB / 1024).toFixed(1)} MB` : `${p.sizeKB} KB`}
+                            </span>
+                          )}
                           <input
                             type="text"
                             value={p.caption}

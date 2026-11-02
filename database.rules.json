@@ -1,0 +1,71 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "admin": {
+      ".read": "auth != null && auth.token.role === 'admin'",
+      ".write": "auth != null && auth.token.role === 'admin'"
+    },
+    "users": {
+      ".read": "auth != null",
+      "$userId": {
+        ".read": "auth != null && (auth.token.role === 'admin' || auth.uid === $userId)",
+        ".write": "auth != null && (auth.token.role === 'admin' || auth.uid === $userId)",
+        ".validate": "newData.hasChildren(['username', 'role', 'status'])",
+        "role": {
+          ".validate": "newData.val() === 'admin' ? (auth.token.role === 'admin') : (newData.val() === 'member')"
+        }
+      }
+    },
+    "letters": {
+      ".read": "auth != null && auth.token.role === 'admin'",
+      "$letterId": {
+        ".read": "auth != null && (auth.token.role === 'admin' || data.child('recipientUsername').val() === auth.token.username || data.child('senderId').val() === auth.uid || data.child('isBroadcast').val() === true)",
+        ".write": "auth != null && (auth.token.role === 'admin' || (newData.child('senderId').val() === auth.uid && (data.val() === null || data.child('senderId').val() === auth.uid)))",
+        ".validate": "newData.hasChildren(['title', 'recipientName', 'theme'])"
+      }
+    },
+    "vault_data": {
+      ".read": "auth != null && auth.token.role === 'admin'",
+      ".write": "auth != null && auth.token.role === 'admin'",
+      ".validate": "newData.hasChildren(['cipher', 'updatedAt'])",
+      "cipher": {
+        ".validate": "(newData.isString() && newData.val().length > 0 && newData.val().length <= 5242880) || (newData.hasChildren(['v', 'alg', 'data']))"
+      },
+      "updatedAt": {
+        ".validate": "newData.isString()"
+      },
+      "revision": {
+        ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0)"
+      },
+      "schemaVersion": {
+        ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 1)"
+      },
+      "$other": {
+        ".validate": false
+      }
+    },
+    "user_vaults": {
+      "$userId": {
+        ".read": "auth != null && (auth.token.role === 'admin' || auth.uid === $userId)",
+        ".write": "auth != null && (auth.token.role === 'admin' || auth.uid === $userId)",
+        ".validate": "newData.hasChildren(['cipher', 'updatedAt'])",
+        "cipher": {
+          ".validate": "(newData.isString() && newData.val().length > 0 && newData.val().length <= 5242880) || (newData.hasChildren(['v', 'alg', 'data']))"
+        },
+        "updatedAt": {
+          ".validate": "newData.isString()"
+        },
+        "revision": {
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0)"
+        },
+        "schemaVersion": {
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 1)"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}

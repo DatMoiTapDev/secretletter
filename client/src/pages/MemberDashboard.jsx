@@ -26,6 +26,7 @@ import ShareModal from '../components/ShareModal';
 import UserAvatar from '../components/UserAvatar';
 import { soundEngine } from '../audio/soundEngine';
 import { getAppUrl, copyToClipboard } from '../utils/url';
+import { EmptyLettersScreen, OfflineNoticeBanner } from '../components/ErrorScreens';
 
 export default function MemberDashboard() {
   const navigate = useNavigate();
@@ -50,6 +51,18 @@ export default function MemberDashboard() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(0.4);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Kiểm tra đăng nhập
   useEffect(() => {
@@ -178,6 +191,8 @@ export default function MemberDashboard() {
       isDarkMode ? 'bg-neutral-950 text-neutral-100' : 'bg-[#faf8f5] text-neutral-900'
     }`}>
       <div className="max-w-6xl mx-auto space-y-8">
+        {/* THANH BÁO NGOẠI TUYẾN / ĐỒNG BỘ */}
+        <OfflineNoticeBanner isOffline={isOffline} pendingSync={Boolean(localStorage.getItem('gh_pending_sync'))} />
         
         {/* HEADER THÀNH VIÊN */}
         <header className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-6 transition-colors ${
@@ -315,21 +330,10 @@ export default function MemberDashboard() {
         {activeTab === 'outbox' && (
           <div className="space-y-4">
             {outboxLetters.length === 0 ? (
-              <div className={`p-12 rounded-3xl border border-dashed text-center space-y-3 ${
-                isDarkMode ? 'bg-neutral-900/60 border-white/10 text-neutral-400' : 'bg-white border-neutral-300 text-stone-500 shadow-xs'
+              <div className={`p-8 rounded-3xl border border-dashed text-center ${
+                isDarkMode ? 'bg-neutral-900/60 border-white/10' : 'bg-white border-neutral-300 shadow-xs'
               }`}>
-                <Send size={36} className="mx-auto opacity-40 text-amber-500" />
-                <p className="font-serif text-base font-medium">Bạn chưa gửi lá thư nào.</p>
-                <p className="text-xs opacity-75 max-w-sm mx-auto">
-                  Hãy gửi lá thư bí mật đầu tiên đến người thương, bạn bè với nhạc nền và giao diện cảm xúc tuyệt đẹp.
-                </p>
-                <Link
-                  to="/dashboard/compose"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 mt-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-serif font-bold text-xs shadow-md transition-all"
-                >
-                  <Plus size={15} />
-                  <span>Soạn Lá Thư Đầu Tiên</span>
-                </Link>
+                <EmptyLettersScreen type="outbox" onComposeClick={() => navigate('/dashboard/compose')} />
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -465,14 +469,10 @@ export default function MemberDashboard() {
         {activeTab === 'inbox' && (
           <div className="space-y-4">
             {inboxLetters.length === 0 ? (
-              <div className={`p-12 rounded-3xl border border-dashed text-center space-y-3 ${
-                isDarkMode ? 'bg-neutral-900/60 border-white/10 text-neutral-400' : 'bg-white border-neutral-300 text-stone-500 shadow-xs'
+              <div className={`p-8 rounded-3xl border border-dashed text-center ${
+                isDarkMode ? 'bg-neutral-900/60 border-white/10' : 'bg-white border-neutral-300 shadow-xs'
               }`}>
-                <Inbox size={36} className="mx-auto opacity-40 text-sky-500" />
-                <p className="font-serif text-base font-medium">Chưa có lá thư nào được gửi đến bạn.</p>
-                <p className="text-xs opacity-75 max-w-sm mx-auto">
-                  Khi người khác gửi thư đến tên tài khoản <strong className="text-amber-600 font-mono">@{user.username}</strong>, thư sẽ xuất hiện tại đây ngay lập tức!
-                </p>
+                <EmptyLettersScreen type="inbox" onComposeClick={() => navigate('/dashboard/compose')} />
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

@@ -10,6 +10,40 @@
  * - Mở khóa thư, xem trước và chia sẻ
  */
 
+import {
+  VAULT_SCHEMA_VERSION,
+  encryptVaultData as syncEncryptVaultData,
+  decryptVaultData as syncDecryptVaultData,
+  cryptoEncryptAesGcm,
+  cryptoDecryptAesGcm,
+  mergeLetters as syncMergeLetters,
+  mergeUsers as syncMergeUsers,
+  mergeVibeHub as syncMergeVibeHub,
+  mergeTombstones as syncMergeTombstones,
+  mergeDeletedIds as syncMergeDeletedIds,
+  normalizeDeletedIds as syncNormalizeDeletedIds,
+  recordTombstone as syncRecordTombstone,
+  migrateToV3Payload as syncMigrateToV3Payload
+} from './syncEngine.js';
+
+export const encryptVaultData = syncEncryptVaultData;
+export const decryptVaultData = syncDecryptVaultData;
+export const mergeLetters = syncMergeLetters;
+export const mergeUsers = syncMergeUsers;
+export const mergeVibeHub = syncMergeVibeHub;
+export const recordTombstone = syncRecordTombstone;
+export const mergeTombstones = syncMergeTombstones;
+export const mergeDeletedIds = syncMergeDeletedIds;
+export const normalizeDeletedIds = syncNormalizeDeletedIds;
+export const migrateToV2Payload = syncMigrateToV3Payload;
+export const migrateToV3Payload = syncMigrateToV3Payload;
+
+export function dispatchSyncStatus(status, message, extra = {}) {
+  if (typeof window === 'undefined') return;
+  const detail = { status, message, timestamp: new Date().toISOString(), ...extra };
+  window.dispatchEvent(new CustomEvent('secretletter:sync-status', { detail }));
+}
+
 export async function sha256Hash(text) {
   try {
     const encoder = new TextEncoder();
@@ -85,100 +119,96 @@ export function decodeBase64Utf8(str) {
 }
 
 /**
- * Lấy toàn bộ dữ liệu hiện tại trong LocalStorage để đồng bộ
+ * Lấy toàn bộ dữ liệu hiện tại trong LocalStorage theo Schema v3 (kèm OCC, Tombstones và Permanent Deleted IDs)
  */
 export function getSyncPayload() {
   const users = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
   const letters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
   const vibe = JSON.parse(localStorage.getItem('gh_mock_vibe') || '{}');
+  const tombstones = JSON.parse(localStorage.getItem('gh_mock_tombstones') || '{"letters":{},"users":{}}');
+  const deletedIds = JSON.parse(localStorage.getItem('gh_mock_deleted_ids') || '{"letters":{},"users":{}}');
+  const revision = parseInt(localStorage.getItem('gh_cloud_revision') || '1', 10);
   return {
-    version: '1.0',
+    schemaVersion: VAULT_SCHEMA_VERSION,
+    revision,
     timestamp: new Date().toISOString(),
     users,
     letters,
-    vibe
+    vibe,
+    tombstones,
+    deletedIds
   };
 }
 
 /**
- * Nhập dữ liệu đồng bộ và lưu vào LocalStorage
+ * Nhập và hợp nhất dữ liệu đồng bộ an toàn:
+ * - Bảo tồn các lá thư đang có
+ * - Phục vụ cơ chế Tombstone & Permanent Deleted IDs chống hồi sinh
+ * - Tự động tách bản sao xung đột (Conflict Fork) khi bị sửa đồng thời
  */
-export function importSyncPayload(data) {
+export function importSyncPayload(data, options = {}) {
   if (!data || typeof data !== 'object') {
     return { success: false, message: 'Dữ liệu không hợp lệ.' };
   }
 
-  let importedUsers = 0;
-  let importedLetters = 0;
+  const localLetters = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+  const localUsers = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
+  const localVibe = JSON.parse(localStorage.getItem('gh_mock_vibe') || '{}');
+  const localTombstones = JSON.parse(localStorage.getItem('gh_mock_tombstones') || '{"letters":{},"users":{}}');
+  const localDeletedIds = JSON.parse(localStorage.getItem('gh_mock_deleted_ids') || '{"letters":{},"users":{}}');
 
-  // 1. Nhập danh sách tài khoản: Cloud là nguồn chuẩn, thay thế hoàn toàn danh sách cũ
-  // để các tài khoản đã bị Admin xóa ở Dashboard sẽ biến mất vĩnh viễn trên mọi máy!
-  if (data.users && Array.isArray(data.users)) {
-    const adminRoot = {
-      id: 'usr_tiendat_root',
-      username: 'admin',
-      displayName: 'Quản Trị Viên',
-      avatar: '👑',
-      role: 'admin',
-      status: 'active',
-      createdAt: '2026-09-24T00:00:00.000Z'
-    };
-    const adminAlias = {
-      id: 'usr_tiendat_alias',
-      username: 'tiendat',
-      displayName: 'Tiến Đạt',
-      avatar: '👑',
-      role: 'admin',
-      status: 'active',
-      createdAt: '2026-09-24T00:00:00.000Z'
-    };
-
-    const userMap = new Map();
-    userMap.set('admin', adminRoot);
-    userMap.set('tiendat', adminAlias);
-
-    data.users.forEach((u) => {
-      const uname = (u.username || '').toLowerCase().trim();
-      if (uname && uname !== 'admin' && uname !== 'tiendat') {
-        const cleanUser = { ...u };
-        delete cleanUser.initialPassword;
-        userMap.set(uname, cleanUser);
-        importedUsers++;
-      }
-    });
-
-    try {
-      localStorage.setItem('gh_mock_users', JSON.stringify(Array.from(userMap.values())));
-    } catch (e) {
-      console.warn('LocalStorage đầy hoặc bị giới hạn trên iOS khi lưu users:', e);
+  // DATA-01: Nếu là seed cold start, chỉ nạp khi local hoàn toàn trống
+  if (options.isColdStartSeed) {
+    const hasMembers = localUsers.some(
+      (u) => u.role !== 'admin' && u.username !== 'admin' && u.username !== 'tiendat'
+    );
+    if (localLetters.length > 0 || hasMembers) {
+      console.log('🛡️ Đã có dữ liệu người dùng/thư trên thiết bị, bỏ qua seed-data để chống ghi đè.');
+      return { success: false, skipped: true };
     }
   }
 
-  // 2. Nhập danh sách lá thư: Thay thế danh sách trên máy bằng dữ liệu chuẩn từ Cloud
-  if (data.letters && Array.isArray(data.letters)) {
-    try {
-      localStorage.setItem('gh_mock_letters', JSON.stringify(data.letters));
-      importedLetters = data.letters.length;
-    } catch (e) {
-      console.warn('LocalStorage đầy trên iOS khi lưu letters:', e);
-      try {
-        // Nếu không đủ bộ nhớ, lưu 5 lá thư mới nhất
-        localStorage.setItem('gh_mock_letters', JSON.stringify(data.letters.slice(0, 5)));
-        importedLetters = Math.min(5, data.letters.length);
-      } catch {}
-    }
+  // Tự động migrate payload sang format chuẩn v3
+  const migrated = migrateToV3Payload(data);
+
+  // 1. Merge Deleted IDs & Tombstones
+  const mergedDeletedIds = mergeDeletedIds(localDeletedIds, migrated.deletedIds);
+  const mergedTombstones = mergeTombstones(localTombstones, migrated.tombstones, localDeletedIds, migrated.deletedIds);
+
+  // 2. Merge Users
+  const mergedUsers = mergeUsers(localUsers, migrated.users, mergedTombstones, mergedDeletedIds);
+
+  // 3. Merge Letters với Conflict Forking (Không bao giờ ghi đè mất chữ)
+  const { mergedLetters, conflictForks } = mergeLetters(localLetters, migrated.letters, mergedTombstones, mergedDeletedIds);
+
+  // 4. Merge Vibe Hub
+  const mergedVibe = mergeVibeHub(localVibe, migrated.vibe);
+
+  // Lưu vào localStorage an toàn
+  try {
+    localStorage.setItem('gh_mock_users', JSON.stringify(mergedUsers));
+    localStorage.setItem('gh_mock_letters', JSON.stringify(mergedLetters));
+    localStorage.setItem('gh_mock_vibe', JSON.stringify(mergedVibe));
+    localStorage.setItem('gh_mock_tombstones', JSON.stringify(mergedTombstones));
+    localStorage.setItem('gh_mock_deleted_ids', JSON.stringify(mergedDeletedIds));
+  } catch (e) {
+    console.warn('LocalStorage đầy hoặc bị giới hạn khi lưu dữ liệu đã merge:', e);
   }
 
-  // 3. Nhập dữ liệu Vibe Hub: Thay thế dữ liệu trên máy bằng dữ liệu chuẩn từ Cloud
-  if (data.vibe && typeof data.vibe === 'object') {
-    try {
-      localStorage.setItem('gh_mock_vibe', JSON.stringify(data.vibe));
-    } catch (e) {
-      console.warn('LocalStorage đầy trên iOS khi lưu vibe:', e);
-    }
+  if (conflictForks && conflictForks.length > 0) {
+    dispatchSyncStatus(
+      'conflict_preserved',
+      `Đã đồng bộ và tự động bảo tồn ${conflictForks.length} bản sao xung đột riêng biệt.`,
+      { count: conflictForks.length }
+    );
   }
 
-  return { success: true, importedUsers, importedLetters };
+  return {
+    success: true,
+    importedUsers: mergedUsers.length,
+    importedLetters: mergedLetters.length,
+    conflictForks: conflictForks || []
+  };
 }
 
 /**
@@ -263,196 +293,262 @@ export function checkAndApplyUrlSync() {
   }
 }
 
+import {
+  getFirebaseAuthToken as getAuthTokenFromManager,
+  setFirebaseAuthSession,
+  signOutFirebaseAuth,
+  isFirebaseAuthActive,
+  buildFirebaseRestUrl as buildAuthRestUrl
+} from './firebaseAuth.js';
+
 // Firebase Realtime Database Cloud URL mặc định (Tự động đồng bộ 24/7 mọi thiết bị)
 export const DEFAULT_CLOUD_DB_URL = 'https://secretletter-8a0f4-default-rtdb.firebaseio.com';
 
-// Khóa mã hóa End-to-End bảo vệ dữ liệu bí mật trên Đám Mây
-const VAULT_SECRET = 'VaultSecretLetter_CoreShield_AESX_9941_K8';
+let memoryFirebaseAuthToken = '';
 
 /**
- * Mã hóa toàn bộ dữ liệu trước khi đẩy lên Firebase (End-to-End Encryption)
- * Người xem Firebase Console chỉ thấy chuỗi mã hóa vô nghĩa, không thể đọc trộm thư hay mật khẩu!
+ * Quản lý phiên đăng nhập Firebase Authentication
  */
-export function encryptVaultData(payload) {
-  try {
-    const jsonStr = JSON.stringify(payload);
-    const utf8Bytes = new TextEncoder().encode(jsonStr);
-    const keyBytes = new TextEncoder().encode(VAULT_SECRET);
-    const cipherBytes = new Uint8Array(utf8Bytes.length);
-    for (let i = 0; i < utf8Bytes.length; i++) {
-      cipherBytes[i] = utf8Bytes[i] ^ keyBytes[i % keyBytes.length];
-    }
-    // Ghép chuỗi nhị phân theo từng khối 8192 bytes tránh lỗi Call Stack Exceeded trên Safari iOS
-    let binary = '';
-    const CHUNK = 8192;
-    for (let i = 0; i < cipherBytes.length; i += CHUNK) {
-      const slice = cipherBytes.subarray(i, i + CHUNK);
-      binary += String.fromCharCode.apply(null, slice);
-    }
-    return btoa(binary);
-  } catch (err) {
-    console.error('Lỗi mã hóa dữ liệu Vault:', err);
-    return null;
+export function setFirebaseAuthToken(token) {
+  memoryFirebaseAuthToken = token || '';
+  if (token) {
+    setFirebaseAuthSession({ idToken: token, expiresIn: 3600 });
+  } else {
+    signOutFirebaseAuth();
   }
 }
 
-/**
- * Giải mã dữ liệu an toàn từ Firebase về thiết bị (Tối ưu hóa bộ nhớ cho iOS Safari)
- */
-export function decryptVaultData(cipherBase64) {
-  try {
-    const binary = atob(cipherBase64);
-    const cipherBytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      cipherBytes[i] = binary.charCodeAt(i);
-    }
-    const keyBytes = new TextEncoder().encode(VAULT_SECRET);
-    const plainBytes = new Uint8Array(cipherBytes.length);
-    for (let i = 0; i < cipherBytes.length; i++) {
-      plainBytes[i] = cipherBytes[i] ^ keyBytes[i % keyBytes.length];
-    }
-    const jsonStr = new TextDecoder('utf-8').decode(plainBytes);
-    return JSON.parse(jsonStr);
-  } catch (err) {
-    console.warn('Lỗi giải mã dữ liệu Vault:', err);
-    return null;
+export function getFirebaseAuthToken() {
+  const managerToken = getAuthTokenFromManager();
+  if (managerToken) return managerToken;
+  if (memoryFirebaseAuthToken) return memoryFirebaseAuthToken;
+  if (typeof sessionStorage !== 'undefined') {
+    return sessionStorage.getItem('gh_firebase_id_token') || '';
   }
+  return '';
 }
 
 /**
- * Đồng bộ với Firebase Realtime Database (Tự động giải mã và cập nhật)
+ * Xây dựng URL gọi REST API Firebase Realtime Database có gắn ID Token xác thực
+ * Tuân thủ BLOCKER 1: Không gọi RTDB nặc danh khi đã đăng nhập
+ */
+export function buildFirebaseRestUrl(baseUrl, idToken = getFirebaseAuthToken()) {
+  return buildAuthRestUrl(baseUrl, idToken);
+}
+
+/**
+ * Đồng bộ với Firebase Realtime Database (Tự động giải mã và cập nhật với OCC, ETag & Tombstone)
  */
 export async function syncWithCloudDb() {
   const cloudUrl = localStorage.getItem('gh_cloud_db_url') || DEFAULT_CLOUD_DB_URL;
-  if (!cloudUrl) return;
+  if (!cloudUrl) return { success: false, noUrl: true };
+
+  dispatchSyncStatus('syncing', 'Đang kết nối đám mây để cập nhật dữ liệu...');
 
   try {
-    const res = await fetch(`${cloudUrl.replace(/\/$/, '')}/vault_data.json`);
-    if (res.ok) {
-      const cloudData = await res.json();
-      if (cloudData && typeof cloudData === 'object') {
-        if (cloudData.cipher) {
-          // Giải mã dữ liệu End-to-End
-          const decrypted = decryptVaultData(cloudData.cipher);
-          if (decrypted) {
-            importSyncPayload(decrypted);
-          }
-        } else if (cloudData.users || cloudData.letters || cloudData.vibe) {
-          // Tương thích ngược nếu có dữ liệu chưa mã hóa
-          importSyncPayload(cloudData);
-        }
+    const requestUrl = buildFirebaseRestUrl(cloudUrl);
+    const res = await fetch(requestUrl);
+    if (!res.ok) {
+      dispatchSyncStatus('error', `Máy chủ đám mây phản hồi mã lỗi: ${res.status}`);
+      return { success: false, httpError: res.status };
+    }
+
+    const etag = res.headers?.get?.('etag') || res.headers?.get?.('ETag');
+    if (etag) {
+      localStorage.setItem('gh_cloud_etag', etag);
+    }
+
+    const cloudData = await res.json();
+    if (!cloudData || (typeof cloudData === 'object' && Object.keys(cloudData).length === 0)) {
+      dispatchSyncStatus('synced', 'Đám mây hiện tại chưa có dữ liệu.');
+      return { success: true, cloudEmpty: true };
+    }
+
+    let payloadToImport = null;
+    let cloudRevision = cloudData.revision || 1;
+
+    if (cloudData.cipher) {
+      // Hỗ trợ cả giải mã AES-GCM (v3) lẫn giải mã tương thích ngược (v1/v2)
+      payloadToImport = await cryptoDecryptAesGcm(cloudData.cipher);
+      if (!payloadToImport && typeof cloudData.cipher === 'string') {
+        payloadToImport = decryptVaultData(cloudData.cipher);
       }
+      if (payloadToImport && typeof payloadToImport.revision === 'number') {
+        cloudRevision = payloadToImport.revision;
+      }
+    } else if (cloudData.users || cloudData.letters || cloudData.vibe) {
+      payloadToImport = cloudData;
+    }
+
+    if (payloadToImport) {
+      payloadToImport.revision = cloudRevision;
+      importSyncPayload(payloadToImport);
+      localStorage.setItem('gh_cloud_revision', String(cloudRevision));
+      dispatchSyncStatus('synced', 'Đồng bộ đám mây thành công.');
+      return { success: true, cloudEmpty: false, revision: cloudRevision, etag };
+    } else {
+      dispatchSyncStatus('error', 'Không thể giải mã dữ liệu đám mây.');
+      return { success: false, decryptError: true };
     }
   } catch (err) {
-    console.warn('Lỗi đồng bộ đám mây:', err);
+    console.warn('Lỗi kết nối đồng bộ đám mây (đang dùng cache):', err?.message || err);
+    dispatchSyncStatus('offline_cached', 'Mất kết nối máy chủ đám mây. Đang chạy chế độ offline an toàn.');
+    return { success: false, offline: true };
   }
 }
 
 /**
- * Đẩy dữ liệu mới nhất lên Cloud Database (Mã hóa toàn diện trước khi gửi)
+ * Đẩy dữ liệu mới nhất lên Cloud Database với kiểm tra nguyên tử ETag + If-Match
+ * Xử lý HTTP 412 (Precondition Failed) với giải quyết xung đột (Conflict Forking)
+ * và thử lại có giới hạn (Bounded Retry, max 3 lần, backoff lũy tiến kèm jitter).
+ * Tuân thủ P0-01: Không mất dữ liệu, không retry vô hạn, không silent overwrite.
  */
-export function pushToCloudDb() {
+export async function pushToCloudDb(maxRetries = 3) {
   const cloudUrl = localStorage.getItem('gh_cloud_db_url') || DEFAULT_CLOUD_DB_URL;
-  if (!cloudUrl) return;
+  if (!cloudUrl) return { success: false, noUrl: true };
 
-  try {
-    const payload = getSyncPayload();
-    const cipher = encryptVaultData(payload);
-    if (!cipher) return;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      let etag = localStorage.getItem('gh_cloud_etag');
+      const cloudEndpoint = buildFirebaseRestUrl(cloudUrl);
 
-    fetch(`${cloudUrl.replace(/\/$/, '')}/vault_data.json`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      // Nếu chưa có ETag, thử lấy ETag hiện tại từ cloud
+      if (!etag) {
+        try {
+          const probeRes = await fetch(cloudEndpoint);
+          if (probeRes.ok) {
+            etag = probeRes.headers?.get?.('etag') || probeRes.headers?.get?.('ETag');
+            if (etag) localStorage.setItem('gh_cloud_etag', etag);
+          }
+        } catch {}
+      }
+
+      const payload = getSyncPayload();
+      const currentLocalRev = parseInt(localStorage.getItem('gh_cloud_revision') || '1', 10);
+      const nextRevision = currentLocalRev + 1;
+      payload.revision = nextRevision;
+
+      // Mã hóa an toàn AES-GCM (hoặc v2 tương thích)
+      let cipher = await cryptoEncryptAesGcm(payload);
+      if (!cipher) {
+        cipher = encryptVaultData(payload);
+      }
+      if (!cipher) return { success: false, encryptError: true };
+
+      const cloudPayload = {
         cipher,
+        revision: nextRevision,
+        schemaVersion: VAULT_SCHEMA_VERSION,
         updatedAt: new Date().toISOString()
-      })
-    }).catch(() => {});
-  } catch {}
+      };
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (etag) {
+        headers['if-match'] = etag;
+      }
+
+      const putRes = await fetch(cloudEndpoint, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(cloudPayload)
+      });
+
+      // XỬ LÝ HTTP 412: PRECONDITION FAILED (Có xung đột sửa đổi từ máy khác)
+      if (putRes.status === 412) {
+        console.warn(`[OCC 412] Phát hiện xung đột phiên bản trên đám mây (Lần thử ${attempt}/${maxRetries}). Bắt đầu đồng bộ và hợp nhất...`);
+
+        // 1. Tải phiên bản mới nhất từ remote
+        const latestRes = await fetch(cloudEndpoint);
+        if (latestRes.ok) {
+          const newEtag = latestRes.headers?.get?.('etag') || latestRes.headers?.get?.('ETag');
+          if (newEtag) localStorage.setItem('gh_cloud_etag', newEtag);
+
+          const remoteData = await latestRes.json();
+          if (remoteData?.cipher) {
+            let remoteDecrypted = await cryptoDecryptAesGcm(remoteData.cipher);
+            if (!remoteDecrypted && typeof remoteData.cipher === 'string') {
+              remoteDecrypted = decryptVaultData(remoteData.cipher);
+            }
+            if (remoteDecrypted) {
+              remoteDecrypted.revision = remoteData.revision || nextRevision;
+              // Hợp nhất dữ liệu và tự động tạo Conflict Fork nếu có xung đột nội dung cùng 1 lá thư
+              importSyncPayload(remoteDecrypted);
+            }
+          }
+        }
+
+        // 2. Backoff lũy tiến có jitter trước khi thử ghi lại
+        const backoffMs = Math.min(1000, Math.pow(2, attempt) * 120 + Math.floor(Math.random() * 80));
+        await new Promise(r => setTimeout(r, backoffMs));
+        continue;
+      }
+
+      if (putRes.ok) {
+        const newEtag = putRes.headers?.get?.('etag') || putRes.headers?.get?.('ETag');
+        if (newEtag) localStorage.setItem('gh_cloud_etag', newEtag);
+        localStorage.setItem('gh_cloud_revision', String(nextRevision));
+        localStorage.removeItem('gh_pending_sync');
+        dispatchSyncStatus('synced', 'Đã lưu và đồng bộ nguyên tử lên đám mây thành công.');
+        return { success: true, revision: nextRevision, etag: newEtag };
+      } else {
+        localStorage.setItem('gh_pending_sync', 'true');
+        dispatchSyncStatus('offline_cached', 'Lưu tạm trên máy. Chưa thể đồng bộ lên đám mây.');
+        return { success: false, httpStatus: putRes.status };
+      }
+    } catch (err) {
+      localStorage.setItem('gh_pending_sync', 'true');
+      dispatchSyncStatus('offline_cached', 'Đã lưu thay đổi vào bộ nhớ máy. Sẽ tự động đồng bộ khi có kết nối mạng.');
+      return { success: false, offline: true };
+    }
+  }
+
+  // Quá số lần retry: Báo lỗi xung đột rõ ràng, KHÔNG ghi đè mất dữ liệu
+  localStorage.setItem('gh_pending_sync', 'true');
+  dispatchSyncStatus('conflict_error', 'Xung đột phiên bản dữ liệu sau 3 lần thử lại. Dữ liệu của bạn đã được bảo vệ trên máy.');
+  return { success: false, conflict: true, retryExceeded: true };
 }
 
-export function setupGitHubPagesMock() {
+export async function setupGitHubPagesMock() {
   if (!IS_GITHUB_PAGES) return;
 
   console.log('🌐 Đang chạy trên GitHub Pages tĩnh: Kích hoạt LocalStorage Adapter toàn diện cho /api');
 
-  // 0. Làm sạch triệt để bộ nhớ LocalStorage cũ trên mọi thiết bị và loại bỏ mật khẩu thô
-  if (localStorage.getItem('gh_mock_version_clean_v5') !== 'true') {
-    const rootAdmins = [
-      {
-        id: 'usr_root_admin',
-        username: 'admin',
-        displayName: 'Quản Trị Viên',
-        avatar: '👑',
-        role: 'admin',
-        status: 'active',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'usr_alias_admin',
-        username: 'tiendat',
-        displayName: 'Tiến Đạt',
-        avatar: '👑',
-        role: 'admin',
-        status: 'active',
-        createdAt: new Date().toISOString()
-      }
-    ];
-    localStorage.setItem('gh_mock_users', JSON.stringify(rootAdmins));
-    localStorage.setItem('gh_mock_version_clean_v5', 'true');
-  }
+  // 1. Đảm bảo tài khoản Root Admin luôn tồn tại an toàn mà KHÔNG xóa tài khoản thành viên
+  const curUsers = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
+  const adminRoot = {
+    id: 'usr_tiendat_root',
+    username: 'admin',
+    displayName: 'Quản Trị Viên',
+    avatar: '👑',
+    role: 'admin',
+    status: 'active',
+    createdAt: '2026-09-24T00:00:00.000Z'
+  };
+  const adminAlias = {
+    id: 'usr_tiendat_alias',
+    username: 'tiendat',
+    displayName: 'Tiến Đạt',
+    avatar: '👑',
+    role: 'admin',
+    status: 'active',
+    createdAt: '2026-09-24T00:00:00.000Z'
+  };
 
-  // 1. Kiểm tra tham số link đồng bộ từ thiết bị khác (?sync=...)
-  checkAndApplyUrlSync();
+  const userMap = new Map();
+  userMap.set('admin', adminRoot);
+  userMap.set('tiendat', adminAlias);
+  curUsers.forEach((u) => {
+    const uname = (u.username || '').toLowerCase().trim();
+    if (uname && uname !== 'admin' && uname !== 'tiendat') {
+      userMap.set(uname, u);
+    }
+  });
+  localStorage.setItem('gh_mock_users', JSON.stringify(Array.from(userMap.values())));
 
-  // 2. Kéo dữ liệu từ Cloud DB nếu có
-  syncWithCloudDb();
-
-  // 3. Tự động kéo seed-data.json từ bản build phân phối (nếu có)
-  try {
-    const basePath = import.meta.env.BASE_URL || '/';
-    const seedUrl = `${basePath.endsWith('/') ? basePath : basePath + '/'}seed-data.json`;
-    fetch(seedUrl)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((seed) => {
-        if (seed && typeof seed === 'object') {
-          importSyncPayload(seed);
-        }
-      })
-      .catch(() => {});
-  } catch {}
-
-  // 4. Khởi tạo danh sách người dùng mẫu nếu chưa có
-  if (!localStorage.getItem('gh_mock_users')) {
-    const initialUsers = [
-      {
-        id: 'usr_root_admin',
-        username: 'admin',
-        displayName: 'Quản Trị Viên',
-        avatar: '👑',
-        role: 'admin',
-        status: 'active',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'usr_alias_admin',
-        username: 'tiendat',
-        displayName: 'Tiến Đạt',
-        avatar: '👑',
-        role: 'admin',
-        status: 'active',
-        createdAt: new Date().toISOString()
-      }
-    ];
-    localStorage.setItem('gh_mock_users', JSON.stringify(initialUsers));
-  }
-
-  // 4. Khởi tạo danh sách thư nếu chưa có
+  // 2. Khởi tạo danh sách thư, vibe hub và tombstones rỗng nếu chưa từng có
   if (!localStorage.getItem('gh_mock_letters')) {
     localStorage.setItem('gh_mock_letters', JSON.stringify([]));
   }
-
-  // 5. Khởi tạo dữ liệu Vibe Hub nếu chưa có
   if (!localStorage.getItem('gh_mock_vibe')) {
     localStorage.setItem('gh_mock_vibe', JSON.stringify({
       tet: { id: 'tet', name: 'Tết', emoji: '🧧', recipients: [] },
@@ -461,23 +557,52 @@ export function setupGitHubPagesMock() {
       emotional: { id: 'emotional', name: 'Tâm tình', emoji: '🌙', recipients: [] }
     }));
   }
+  if (!localStorage.getItem('gh_mock_tombstones')) {
+    localStorage.setItem('gh_mock_tombstones', JSON.stringify({ letters: {}, users: {} }));
+  }
 
-  // 6. Lắng nghe sự kiện window focus và định kỳ để đồng bộ dữ liệu mới nhất từ đám mây
+  // 3. Kiểm tra tham số link đồng bộ từ thiết bị khác (?sync=...)
+  checkAndApplyUrlSync();
+
+  // 4. Kéo dữ liệu từ Cloud DB trước
+  const cloudResult = await syncWithCloudDb();
+
+  // 5. DATA-01 FIX: Chỉ nạp seed-data.json khi là cold start (Local trống VÀ Cloud rỗng)
+  const lettersAfterCloud = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+  const usersAfterCloud = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
+  const hasCustomMembers = usersAfterCloud.some(
+    (u) => u.role !== 'admin' && u.username !== 'admin' && u.username !== 'tiendat'
+  );
+
+  if (cloudResult?.cloudEmpty && lettersAfterCloud.length === 0 && !hasCustomMembers && !localStorage.getItem('gh_seed_applied')) {
+    try {
+      const basePath = import.meta.env?.BASE_URL || '/';
+      const seedUrl = `${basePath.endsWith('/') ? basePath : basePath + '/'}seed-data.json`;
+      fetch(seedUrl)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((seed) => {
+          if (seed && typeof seed === 'object') {
+            importSyncPayload(seed, { isColdStartSeed: true });
+            localStorage.setItem('gh_seed_applied', 'true');
+          }
+        })
+        .catch(() => {});
+    } catch {}
+  }
+
+  // 6. Lắng nghe sự kiện window focus và mạng internet để tự động đồng bộ
   window.addEventListener('focus', () => {
     syncWithCloudDb();
   });
-  setInterval(() => {
+  window.addEventListener('online', () => {
     syncWithCloudDb();
-  }, 30000);
-
-  // 7. Tự động đồng bộ ngược dữ liệu hiện có trên thiết bị lên Cloud nếu có dữ liệu thành viên
-  setTimeout(() => {
-    const curUsers = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
-    const hasMembers = curUsers.some(u => u.role !== 'admin' && u.username !== 'admin' && u.username !== 'tiendat');
-    if (hasMembers) {
+    if (localStorage.getItem('gh_pending_sync') === 'true') {
       pushToCloudDb();
     }
-  }, 1000);
+  });
+  setInterval(() => {
+    syncWithCloudDb();
+  }, 45000);
 
   const originalFetch = window.fetch;
 
@@ -539,6 +664,11 @@ export function setupGitHubPagesMock() {
             status: 'active',
             createdAt: new Date().toISOString()
           };
+          setFirebaseAuthSession({
+            idToken: sessionToken,
+            expiresIn: 3600,
+            user: adminUser
+          });
           return jsonRes(200, {
             success: true,
             user: adminUser,
@@ -584,10 +714,16 @@ export function setupGitHubPagesMock() {
           delete safeUser.passwordHash;
           delete safeUser.salt;
           delete safeUser.initialPassword;
+          const sessionToken = `usr_token_${user.id}`;
+          setFirebaseAuthSession({
+            idToken: sessionToken,
+            expiresIn: 3600,
+            user: safeUser
+          });
           return jsonRes(200, {
             success: true,
             user: safeUser,
-            token: `usr_token_${user.id}`
+            token: sessionToken
           });
         }
       }
@@ -744,6 +880,10 @@ export function setupGitHubPagesMock() {
         if (target && (target.role === 'admin' || target.username === 'admin' || target.username === 'tiendat')) {
           return jsonRes(403, { success: false, message: 'Không thể xóa tài khoản quản trị tối cao.' });
         }
+        const tombstones = JSON.parse(localStorage.getItem('gh_mock_tombstones') || '{"letters":{},"users":{}}');
+        const updatedTombstones = recordTombstone(tombstones, 'users', id);
+        localStorage.setItem('gh_mock_tombstones', JSON.stringify(updatedTombstones));
+
         const filtered = users.filter(u => u.id !== id);
         localStorage.setItem('gh_mock_users', JSON.stringify(filtered));
         pushToCloudDb();
@@ -1059,7 +1199,12 @@ export function setupGitHubPagesMock() {
         if (targetId) {
           const idx = letters.findIndex(l => l.id === targetId || l.slug === targetId);
           if (idx !== -1) {
-            letters[idx] = { ...letters[idx], ...body, updatedAt: new Date().toISOString() };
+            letters[idx] = {
+              ...letters[idx],
+              ...body,
+              _baseUpdatedAt: letters[idx]._baseUpdatedAt || letters[idx].updatedAt || letters[idx].createdAt,
+              updatedAt: new Date().toISOString()
+            };
             try {
               localStorage.setItem('gh_mock_letters', JSON.stringify(letters));
             } catch {}
@@ -1070,8 +1215,12 @@ export function setupGitHubPagesMock() {
         return jsonRes(404, { success: false, message: 'Không tìm thấy thư.' });
       }
 
-      // DELETE /api/letters/:id (Xóa thư)
+      // DELETE /api/letters/:id (Xóa thư có Tombstone bảo toàn)
       if (method === 'DELETE' && id) {
+        const tombstones = JSON.parse(localStorage.getItem('gh_mock_tombstones') || '{"letters":{},"users":{}}');
+        const updatedTombstones = recordTombstone(tombstones, 'letters', id);
+        localStorage.setItem('gh_mock_tombstones', JSON.stringify(updatedTombstones));
+
         const filtered = letters.filter(l => l.id !== id && l.slug !== id);
         localStorage.setItem('gh_mock_letters', JSON.stringify(filtered));
         pushToCloudDb();
