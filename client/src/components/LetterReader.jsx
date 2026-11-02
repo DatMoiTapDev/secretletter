@@ -1,8 +1,11 @@
-import React from 'react';
-import { Heart, Sparkles, Quote, Calendar } from 'lucide-react';
+import React, { useState } from 'react';
+import { Heart, Sparkles, Quote, Calendar, Play, Pause, Feather } from 'lucide-react';
 import PhotoGallery from './PhotoGallery';
 import SecretUnsaid from './SecretUnsaid';
 import FinalThought from './FinalThought';
+import DigitalGiftBox from './DigitalGiftBox';
+import LetterReplySection from './LetterReplySection';
+import { soundEngine } from '../audio/soundEngine';
 
 export default function LetterReader({
   letter,
@@ -10,11 +13,13 @@ export default function LetterReader({
   fontSize = 'base',
   isDarkPaper = false
 }) {
+  const [isSlowReading, setIsSlowReading] = useState(false);
   const content = letter.content || {};
   const greeting = content.greeting || `Gửi ${letter.recipientName || 'bạn'},`;
   const paragraphs = content.paragraphs || [];
   const quotes = content.quotes || [];
   const photos = letter.photos || [];
+  const gift = letter.gift || null;
 
   // Font size class mapper
   const fontSizeClasses = {
@@ -43,9 +48,29 @@ export default function LetterReader({
 
         {/* TIÊU ĐỀ LÁ THƯ VÀ THỜI GIAN */}
         <div className="text-center border-b border-amber-900/15 dark:border-white/10 pb-8 mb-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs tracking-wider uppercase mb-3">
-            <Sparkles size={12} />
-            <span>Thư gửi riêng tư</span>
+          <div className="flex items-center justify-center gap-3 mb-3 flex-wrap">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs tracking-wider uppercase">
+              <Sparkles size={12} />
+              <span>Thư gửi riêng tư</span>
+            </div>
+
+            {/* Nút bật/tắt đọc chầm chậm */}
+            <button
+              type="button"
+              onClick={() => {
+                soundEngine.playClickSound();
+                setIsSlowReading(prev => !prev);
+              }}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-serif transition-all cursor-pointer ${
+                isSlowReading
+                  ? 'bg-amber-500 text-neutral-950 font-bold shadow-xs'
+                  : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300'
+              }`}
+              title="Chế độ đọc chậm rãi lắng đọng"
+            >
+              <Feather size={12} />
+              <span>{isSlowReading ? 'Đang đọc chầm chậm ✍️' : 'Đọc chầm chậm'}</span>
+            </button>
           </div>
 
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-serif font-bold text-amber-950 dark:text-amber-100 tracking-tight mb-3">
@@ -78,7 +103,8 @@ export default function LetterReader({
           {paragraphs.map((para, idx) => (
             <p 
               key={idx} 
-              className="first-letter:text-2xl first-letter:font-bold first-letter:text-amber-700 dark:first-letter:text-amber-400 text-justify hyphens-auto"
+              style={isSlowReading ? { animation: `fadeIn 1s ease-out ${idx * 0.4}s both` } : {}}
+              className="first-letter:text-2xl first-letter:font-bold first-letter:text-amber-700 dark:first-letter:text-amber-400 text-justify hyphens-auto transition-all"
             >
               {para}
             </p>
@@ -110,6 +136,11 @@ export default function LetterReader({
           <PhotoGallery photos={photos} />
         )}
 
+        {/* MÓN QUÀ BÍ MẬT / LÌ XÌ SỐ (Digital Gift Box) */}
+        {gift && gift.enabled && (
+          <DigitalGiftBox gift={gift} />
+        )}
+
         {/* ĐIỀU CHƯA NÓI (Interactive Secret Section) */}
         {letter.secretUnsaid && letter.secretUnsaid.enabled && (
           <SecretUnsaid config={letter.secretUnsaid} />
@@ -126,10 +157,13 @@ export default function LetterReader({
 
           <div className="text-right">
             <p className="font-handwriting text-3xl sm:text-4xl text-amber-900 dark:text-amber-200 font-bold">
-              Người gửi tặng bạn
+              {letter.senderName || 'Người gửi tặng bạn'}
             </p>
           </div>
         </div>
+
+        {/* PHẦN THẢ TIM & HỒI ÂM LÁ THƯ (Feedback loop) */}
+        <LetterReplySection letterId={letter.id || letter.slug} senderName={letter.senderName || 'người gửi'} />
 
         {/* ĐIỀU CUỐI CÙNG (Final Spotlight Card) */}
         {letter.finalThought && letter.finalThought.enabled && (

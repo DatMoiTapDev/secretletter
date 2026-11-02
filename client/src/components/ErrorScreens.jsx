@@ -68,30 +68,38 @@ export function ExpiredLetterScreen({ expiresAt }) {
 
 export function NetworkErrorScreen({ onRetry }) {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-neutral-950 text-white">
-      <div className="max-w-md w-full p-8 rounded-3xl bg-neutral-900 border border-white/10 text-center shadow-2xl">
-        <h2 className="text-xl font-serif font-bold mb-3">Kết nối bị gián đoạn</h2>
-        <p className="text-sm text-neutral-400 mb-6">
-          Không thể tải dữ liệu lá thư lúc này. Vui lòng kiểm tra lại kết nối mạng.
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-neutral-950 via-neutral-900 to-neutral-950 text-white select-none">
+      <div className="max-w-md w-full p-8 rounded-3xl bg-neutral-900/90 border border-amber-500/20 text-center shadow-2xl backdrop-blur-md">
+        <div className="w-20 h-20 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto mb-6 text-amber-400">
+          <RefreshCw size={32} className="animate-spin" style={{ animationDuration: '6s' }} />
+        </div>
+
+        <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white mb-3">
+          Đường truyền đang tạm lắng 🕊️
+        </h2>
+
+        <p className="text-neutral-300 font-serif italic mb-8 leading-relaxed">
+          "Hình như cơn gió mang lá thư đến đang bị ngắt quãng đôi chút. Bạn thử kết nối lại để tiếp tục hành trình cảm xúc nhé."
         </p>
+
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           {onRetry && (
             <button
               type="button"
               onClick={onRetry}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-amber-500 text-neutral-950 font-bold text-sm hover:bg-amber-400 cursor-pointer"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-amber-500 text-neutral-950 font-serif font-bold text-sm hover:bg-amber-400 cursor-pointer shadow-md transition-all"
             >
-              <RefreshCw size={16} />
-              <span>Thử lại</span>
+              <RefreshCw size={15} />
+              <span>Kết nối lại</span>
             </button>
           )}
 
           <Link
             to="/"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-serif text-sm transition-all"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-serif text-sm transition-all"
           >
-            <ArrowLeft size={16} />
-            <span>Trở lại trang chủ</span>
+            <ArrowLeft size={15} />
+            <span>Trang chủ</span>
           </Link>
         </div>
       </div>

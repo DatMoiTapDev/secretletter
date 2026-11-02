@@ -365,6 +365,28 @@ export default function MemberDashboard() {
                           "{letter.title}"
                         </p>
 
+                        {/* THỐNG KÊ TƯƠNG TÁC & HỒI ÂM */}
+                        {(() => {
+                          const hearts = parseInt(localStorage.getItem(`letter_hearts_${letter.id}`) || localStorage.getItem(`letter_hearts_${letter.slug}`) || '0', 10);
+                          const replies = JSON.parse(localStorage.getItem(`letter_replies_${letter.id}`) || localStorage.getItem(`letter_replies_${letter.slug}`) || '[]');
+                          return (
+                            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-dashed border-amber-900/10 dark:border-white/5 flex-wrap">
+                              {hearts > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-serif text-rose-500 font-bold bg-rose-500/10 px-2 py-0.5 rounded-full">
+                                  <span>💖</span>
+                                  <span>{hearts} tim</span>
+                                </span>
+                              )}
+                              {replies.length > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-serif text-sky-600 dark:text-sky-400 font-bold bg-sky-500/10 px-2 py-0.5 rounded-full">
+                                  <span>💌</span>
+                                  <span>{replies.length} hồi âm</span>
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
+
                         <div className={`mt-3 pt-2.5 border-t text-[11px] font-mono flex items-center justify-between ${
                           isDarkMode ? 'border-white/5 text-neutral-500' : 'border-neutral-100 text-stone-500'
                         }`}>

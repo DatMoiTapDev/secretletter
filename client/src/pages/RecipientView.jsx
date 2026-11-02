@@ -377,6 +377,8 @@ export default function RecipientView({ previewData = null }) {
               introQuote={meta.introQuote}
               theme={currentTheme}
               isUnlocked={isUnlocked}
+              monogram={meta.waxMonogram || meta.monogram || ''}
+              sealSymbol={meta.sealSymbol || ''}
               onUnlockClick={handleOpenEnvelopeClick}
               onAnimationComplete={() => setIsAnimationDone(true)}
             />

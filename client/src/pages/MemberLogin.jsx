@@ -53,7 +53,7 @@ export default function MemberLogin() {
     e.preventDefault();
     setError('');
     if (!username.trim() || !password.trim()) {
-      setError('Vui lòng điền đầy đủ tài khoản và mật khẩu.');
+      setError('Bạn ơi, đừng quên điền tên tài khoản và mật khẩu nhé 💌');
       return;
     }
 
@@ -84,10 +84,10 @@ export default function MemberLogin() {
           navigate('/dashboard', { replace: true });
         }
       } else {
-        setError(data.message || 'Tài khoản hoặc mật khẩu không chính xác.');
+        setError(data.message || 'Tên tài khoản hoặc chiếc chìa khóa mật mã chưa trùng khớp rồi, bạn kiểm tra lại nhé.');
       }
     } catch (err) {
-      setError('Lỗi kết nối máy chủ. Vui lòng thử lại sau.');
+      setError('Đường truyền đang tạm thời gián đoạn, bạn chờ một chút rồi thử lại nhé 🕊️');
     } finally {
       setLoading(false);
     }

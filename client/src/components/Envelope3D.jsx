@@ -7,6 +7,8 @@ export default function Envelope3D({
   introQuote = 'Có một vài điều mình muốn bạn đọc thật chậm...',
   theme,
   isUnlocked = false,
+  monogram = '',
+  sealSymbol = '',
   onUnlockClick,
   onAnimationComplete
 }) {
@@ -197,10 +199,18 @@ export default function Envelope3D({
               sealCracked ? 'scale-125 opacity-0' : 'scale-100 hover:scale-105 active:scale-95'
             }`}
           >
-            <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center ${getSealClass(env.sealType)} border-2 border-white/20 shadow-2xl`}>
-              <span className="text-xl sm:text-2xl drop-shadow-md select-none transform transition-transform group-hover:rotate-12">
-                {env.sealSymbol || '✉️'}
-              </span>
+            <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center ${getSealClass(env.sealType)} border-2 border-white/20 shadow-2xl relative`}>
+              {/* Vòng viền khắc chìm hoàng gia */}
+              <div className="absolute inset-1.5 rounded-full border border-dashed border-white/30 pointer-events-none" />
+              {monogram ? (
+                <span className="font-serif font-black text-lg sm:text-xl tracking-tight text-amber-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)] uppercase select-none">
+                  {monogram}
+                </span>
+              ) : (
+                <span className="text-xl sm:text-2xl drop-shadow-md select-none transform transition-transform group-hover:rotate-12">
+                  {sealSymbol || env.sealSymbol || '✉️'}
+                </span>
+              )}
             </div>
             
             {/* Vòng sáng quanh con dấu */}
