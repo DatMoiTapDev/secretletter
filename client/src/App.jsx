@@ -33,6 +33,17 @@ function LoadingFallback() {
 export default function App() {
   return (
     <Suspense fallback={<LoadingFallback />}>
+      {/* Portfolio / Personal Demo Badge */}
+      <aside
+        aria-label="Demo status"
+        className="fixed bottom-3 right-3 z-50 pointer-events-none opacity-85 hover:opacity-100 transition-opacity"
+      >
+        <div className="bg-neutral-900/90 backdrop-blur-md text-amber-200 border border-amber-400/30 text-xs px-3 py-1.5 rounded-full shadow-lg pointer-events-auto flex items-center gap-2 font-sans">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="font-medium tracking-wide">Portfolio Demo • Lưu trữ cục bộ an toàn</span>
+        </div>
+      </aside>
+
       <Routes>
         {/* Trang chủ cổng thông tin (Công khai, nạp trực tiếp) */}
         <Route path="/" element={<Home />} />

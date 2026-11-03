@@ -211,7 +211,14 @@ export function evaluateSecurityRule({ path, operation = 'read', auth = null, da
     }
   }
 
-  // 4. Khu vực /users/:userId
+  // 4. Khu vực /users
+  if (path === '/users' || path === '/users/') {
+    if (auth.token?.role === 'admin') {
+      return { allowed: true };
+    }
+    return { allowed: false, reason: 'Danh sách người dùng chỉ quản trị viên mới được đọc' };
+  }
+
   if (path.startsWith('/users/')) {
     const targetUserId = path.split('/')[2];
     if (auth.token?.role === 'admin' || auth.uid === targetUserId) {

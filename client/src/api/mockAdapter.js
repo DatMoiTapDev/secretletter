@@ -301,8 +301,9 @@ import {
   buildFirebaseRestUrl as buildAuthRestUrl
 } from './firebaseAuth.js';
 
-// Firebase Realtime Database Cloud URL mặc định (Tự động đồng bộ 24/7 mọi thiết bị)
-export const DEFAULT_CLOUD_DB_URL = 'https://secretletter-8a0f4-default-rtdb.firebaseio.com';
+// Firebase Realtime Database Cloud URL (Chỉ kích hoạt khi có biến môi trường VITE_FIREBASE_RTDB_URL hoặc người dùng cấu hình thủ công)
+// Mặc định ở chế độ Demo/Portfolio: Lưu trữ cục bộ an toàn, không tự động gọi cloud production
+export const DEFAULT_CLOUD_DB_URL = import.meta.env?.VITE_FIREBASE_RTDB_URL || '';
 
 let memoryFirebaseAuthToken = '';
 

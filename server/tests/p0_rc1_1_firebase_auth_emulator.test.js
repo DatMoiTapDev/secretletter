@@ -301,4 +301,71 @@ test('RC1.1 — Firebase Auth Integration & Emulator Verification Suite', async 
     assert.strictEqual(v3Payload.letters[1].title, 'Kỷ niệm mùa thu');
     assert.ok(v3Payload.deletedIds, 'Must add permanent deletedIds tracking index');
   });
+
+  // 11. USER DIRECTORY PRIVACY & ROOT /users PROTECTION (FIX-05)
+  await t.test('11. Member cannot read /users list (HTTP 401), but can read own profile /users/:userId', async () => {
+    const tokenAlice = authEmulator.signInWithCustomToken(
+      authEmulator.createCustomToken('usr_alice_123', { role: 'member', username: 'alice' })
+    ).idToken;
+    const adminToken = authEmulator.signInWithCustomToken(
+      authEmulator.createCustomToken('usr_root_admin', { role: 'admin', username: 'admin' })
+    ).idToken;
+
+    rtdbEmulator.store.users = {
+      usr_alice_123: { id: 'usr_alice_123', username: 'alice', role: 'member', status: 'active' },
+      usr_bob_456: { id: 'usr_bob_456', username: 'bob', role: 'member', status: 'active' }
+    };
+
+    // 1. Alice đọc toàn bộ /users -> PHẢI BỊ CHẶN (HTTP 401)
+    const aliceReadAllUsers = await rtdbEmulator.handleRequest({
+      url: `/users.json?auth=${encodeURIComponent(tokenAlice)}`,
+      method: 'GET'
+    });
+    assert.strictEqual(aliceReadAllUsers.status, 401, 'Member cannot read entire /users directory');
+    assert.match(aliceReadAllUsers.data.error, /user directory is admin only/);
+
+    // 2. Alice đọc hồ sơ của chính mình -> THÀNH CÔNG (HTTP 200)
+    const aliceReadOwn = await rtdbEmulator.handleRequest({
+      url: `/users/usr_alice_123.json?auth=${encodeURIComponent(tokenAlice)}`,
+      method: 'GET'
+    });
+    assert.strictEqual(aliceReadOwn.status, 200, 'Member can read own user record');
+    assert.strictEqual(aliceReadOwn.data.username, 'alice');
+
+    // 3. Alice cố đọc hồ sơ của Bob -> PHẢI BỊ CHẶN (HTTP 401)
+    const aliceReadBob = await rtdbEmulator.handleRequest({
+      url: `/users/usr_bob_456.json?auth=${encodeURIComponent(tokenAlice)}`,
+      method: 'GET'
+    });
+    assert.strictEqual(aliceReadBob.status, 401, 'Member cannot read another user record');
+
+    // 4. Admin đọc toàn bộ /users -> THÀNH CÔNG (HTTP 200)
+    const adminReadAllUsers = await rtdbEmulator.handleRequest({
+      url: `/users.json?auth=${encodeURIComponent(adminToken)}`,
+      method: 'GET'
+    });
+    assert.strictEqual(adminReadAllUsers.status, 200, 'Admin can read user directory');
+  });
+
+  // 12. PRODUCTION FUNCTION createFirebaseCustomToken RS256 VERIFICATION (FIX-02)
+  await t.test('12. Production createFirebaseCustomToken mints valid RS256 token with verified claims', async () => {
+    const token = createFirebaseCustomToken({
+      uid: 'usr_prod_alice',
+      username: 'alice',
+      role: 'member'
+    });
+
+    const parts = token.split('.');
+    assert.strictEqual(parts.length, 3, 'Must be valid 3-part JWT');
+
+    const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
+    assert.strictEqual(header.alg, 'RS256', 'Production Custom Token must use RS256');
+    assert.strictEqual(header.typ, 'JWT');
+
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    assert.strictEqual(payload.uid, 'usr_prod_alice');
+    assert.strictEqual(payload.claims.role, 'member');
+    assert.strictEqual(payload.claims.username, 'alice');
+    assert.strictEqual(payload.aud, 'https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit');
+  });
 });

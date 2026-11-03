@@ -268,7 +268,17 @@ export class FirebaseRtdbEmulator {
     }
 
     if (collection === 'users') {
-      if (operation === 'read') return { allowed: true };
+      if (!docId) {
+        return auth.token?.role === 'admin'
+          ? { allowed: true }
+          : { allowed: false, error: 'Permission denied: user directory is admin only' };
+      }
+      if (operation === 'read') {
+        const canRead = auth.token?.role === 'admin' || auth.uid === docId;
+        return canRead
+          ? { allowed: true }
+          : { allowed: false, error: 'Permission denied: cannot view other member profiles' };
+      }
       if (operation === 'write') {
         if (auth.token?.role === 'admin') return { allowed: true };
         // Chống Privilege Escalation: Member không thể tự gán role: 'admin'

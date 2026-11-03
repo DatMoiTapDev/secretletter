@@ -1,23 +1,41 @@
-# 💌 Digital Secret Letter - Nền Tảng Lá Thư Bí Mật Kỹ Thuật Số
+# 💌 Digital Secret Letter — Personal Demo & Portfolio Project
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Project-Personal%20Demo%20%2F%20Portfolio-amber?style=for-the-badge" />
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black" />
   <img src="https://img.shields.io/badge/Vite-5-646CFF?style=for-the-badge&logo=vite&logoColor=white" />
   <img src="https://img.shields.io/badge/TailwindCSS-3-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" />
-  <img src="https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=node.js&logoColor=white" />
-  <img src="https://img.shields.io/badge/Security-Protected-FFD700?style=for-the-badge&logo=auth0&logoColor=black" />
+  <img src="https://img.shields.io/badge/Web%20Crypto-AES--256--GCM-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" />
 </p>
 
 <p align="center">
-  🌐 <b>Website Trực Tuyến (Live Demo):</b> <a href="https://datmoitapdev.github.io/secretletter/">https://datmoitapdev.github.io/secretletter/</a>
+  🌐 <b>Bản Trình Diễn Trực Tuyến (Portfolio Preview):</b> <a href="https://datmoitapdev.github.io/secretletter/">https://datmoitapdev.github.io/secretletter/</a>
 </p>
 
-> **Digital Secret Letter** là nền tảng web tạo và gửi những lá thư kỹ thuật số cảm xúc, tinh tế và an toàn tuyệt đối. Được thiết kế với kiến trúc **3 tầng giao diện độc lập**, hiệu ứng mở phong bì 3D sống động, nhạc nền MP3 tự động theo 4 chủ đề và cơ chế bảo mật hai tầng ổ khóa độc đáo.
+> [!NOTE]
+> **Mục Đích Dự Án**: **Digital Secret Letter** là dự án cá nhân (Personal Demo & Portfolio Showcase) nhằm trình diễn năng lực kỹ thuật Full-stack: kiến trúc giao diện tương tác, hiệu ứng mở phong bì 3D, Web Audio Sound Engine, mã hóa dữ liệu cục bộ với Web Crypto API (AES-256-GCM, PBKDF2), và thuật toán xử lý xung đột đồng thời (Optimistic Concurrency Control - OCC ETag).
+> 
+> **Tuyên Bố Phạm Vi**: Dự án hiện tại phục vụ mục đích học tập, nghiên cứu và phỏng vấn kỹ thuật; **chưa cung cấp dịch vụ thương mại** và **chưa áp dụng để lưu trữ dữ liệu cá nhân nhạy cảm thực tế**.
 
 ---
 
-## 🌟 Demo & Tính Năng Cốt Lõi
+## ⚠️ Giới Hạn Bảo Mật & Lưu Ý Kỹ Thuật (Security Limitations)
+
+Nhằm đảm bảo tính minh bạch tối đa (không quảng cáo sai lệch "an toàn tuyệt đối" hay "E2EE hoàn hảo"):
+
+1. **Chế độ Portfolio Demo (GitHub Pages)**:
+   - Trên phiên bản web tĩnh GitHub Pages, ứng dụng mặc định hoạt động ở **Chế độ Lưu trữ Cục bộ (Local Encrypted Storage)**.
+   - Toàn bộ dữ liệu thư nháp, tài khoản demo được mã hóa AES-256-GCM và lưu trong trình duyệt của bạn (`LocalStorage`), không gửi dữ liệu ra máy chủ bên ngoài để tránh ô nhiễm dữ liệu và đảm bảo quyền riêng tư.
+2. **Giới Hạn Quên Mật Mã (Zero-Knowledge Passphrase)**:
+   - Mật mã bảo vệ lá thư (Khóa tầng 2) được dẫn xuất trực tiếp qua PBKDF2 (100,000 vòng lặp) để mã hóa nội dung.
+   - Nếu người gửi quên mật mã, nội dung lá thư là **không thể khôi phục** (không có backdoor hoặc master key).
+3. **Môi Trường Máy Chủ (Backend / Firebase Integration)**:
+   - Tính năng đồng bộ đám mây đa thiết bị yêu cầu cấu hình Firebase Realtime Database và máy chủ Backend ký token RS256 riêng biệt. Phiên bản Portfolio không kích hoạt kết nối cloud production mặc định.
+
+---
+
+## 🌟 Tính Năng Trình Diễn Kỹ Thuật (Showcase Features)
 
 ### 1. 🏛️ Kiến Trúc 3 Tầng Giao Diện Riêng Biệt
 

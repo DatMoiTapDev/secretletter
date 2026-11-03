@@ -7,7 +7,7 @@
       ".write": "auth != null && auth.token.role === 'admin'"
     },
     "users": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.token.role === 'admin'",
       "$userId": {
         ".read": "auth != null && (auth.token.role === 'admin' || auth.uid === $userId)",
         ".write": "auth != null && (auth.token.role === 'admin' || auth.uid === $userId)",
