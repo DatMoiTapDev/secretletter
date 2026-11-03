@@ -1,131 +1,18 @@
 {
-  "users": [
-    {
-      "id": "usr_demo_maianh",
-      "username": "maianh",
-      "displayName": "Mai Ánh",
-      "avatar": "🌸",
-      "role": "member",
-      "status": "active",
-      "createdAt": "2026-01-01T00:00:00.000Z"
-    },
-    {
-      "id": "usr_demo_hoangnam",
-      "username": "hoangnam",
-      "displayName": "Hoàng Nam",
-      "avatar": "🌿",
-      "role": "member",
-      "status": "active",
-      "createdAt": "2026-01-01T00:00:00.000Z"
-    }
-  ],
-  "letters": [
-    {
-      "id": "let_demo_xuan_2026",
-      "slug": "loi-chuc-xuan-2026",
-      "senderId": "usr_demo_maianh",
-      "senderUsername": "maianh",
-      "senderName": "Mai Ánh",
-      "senderAvatar": "🌸",
-      "senderRole": "member",
-      "recipientName": "Hoàng Nam",
-      "recipientUsername": "hoangnam",
-      "title": "Gửi ngàn lời chúc đầu xuân",
-      "theme": "tet",
-      "hasPassword": false,
-      "content": {
-        "greeting": "Gửi Hoàng Nam thân mến,",
-        "paragraphs": [
-          "Mùa xuân đã về bên khung cửa nhỏ mang theo những bình yên đầu năm.",
-          "Chúc bạn và gia đình một năm mới vạn sự an khang, tràn đầy niềm vui và may mắn!"
-        ],
-        "quotes": [
-          {
-            "text": "Mùa xuân là mùa của hy vọng và những khởi đầu mới rực rỡ."
-          }
-        ]
-      },
-      "secretUnsaid": {
-        "enabled": true,
-        "content": "Cảm ơn vì luôn là người bạn đồng hành ấm áp trong suốt năm qua."
-      },
-      "finalThought": {
-        "enabled": true,
-        "content": "Hẹn gặp lại bạn vào một ngày xuân ấm áp!"
-      },
-      "createdAt": "2026-01-01T08:00:00.000Z",
-      "updatedAt": "2026-01-01T08:00:00.000Z"
-    },
-    {
-      "id": "let_demo_sn_2026",
-      "slug": "chuc-mung-sinh-nhat",
-      "senderId": "usr_demo_hoangnam",
-      "senderUsername": "hoangnam",
-      "senderName": "Hoàng Nam",
-      "senderAvatar": "🌿",
-      "senderRole": "member",
-      "recipientName": "Mai Ánh",
-      "recipientUsername": "maianh",
-      "title": "Chúc mừng tuổi mới rạng rỡ",
-      "theme": "birthday",
-      "hasPassword": false,
-      "content": {
-        "greeting": "Mai Ánh thân mến,",
-        "paragraphs": [
-          "Chúc mừng sinh nhật bạn! Chúc bạn thêm một tuổi mới luôn rực rỡ, yêu đời và đạt được mọi ước mơ."
-        ],
-        "quotes": []
-      },
-      "secretUnsaid": {
-        "enabled": false,
-        "content": ""
-      },
-      "finalThought": {
-        "enabled": true,
-        "content": "Tuổi mới thật hạnh phúc nhé!"
-      },
-      "createdAt": "2026-01-02T09:00:00.000Z",
-      "updatedAt": "2026-01-02T09:00:00.000Z"
-    }
-  ],
+  "users": [],
+  "letters": [],
   "vibe": {
     "tet": {
       "id": "tet",
       "name": "Tết",
       "emoji": "🧧",
-      "recipients": [
-        {
-          "name": "Hoàng Nam",
-          "keys": [
-            {
-              "id": "key_xuan_demo",
-              "name": "Ổ khóa mùa xuân 🌸",
-              "letterId": "let_demo_xuan_2026",
-              "hint": "Lời chúc đầu năm",
-              "password": ""
-            }
-          ]
-        }
-      ]
+      "recipients": []
     },
     "birthday": {
       "id": "birthday",
       "name": "Sinh nhật",
       "emoji": "🎂",
-      "recipients": [
-        {
-          "name": "Mai Ánh",
-          "keys": [
-            {
-              "id": "key_sn_demo",
-              "name": "Chiếc bánh kem ngọt ngào 🎂",
-              "letterId": "let_demo_sn_2026",
-              "hint": "Món quà tuổi mới",
-              "password": ""
-            }
-          ]
-        }
-      ]
+      "recipients": []
     },
     "cute": {
       "id": "cute",
