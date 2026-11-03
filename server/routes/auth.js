@@ -47,26 +47,14 @@ router.post('/login', authRateLimiter, async (req, res) => {
 
 /**
  * POST /api/auth/firebase-custom-token
- * Cấp phát Firebase Custom Token khi có phiên đăng nhập hợp lệ
+ * ĐÃ VÔ HIỆU HÓA: Không tin cậy header x-user-id từ client để cấp phát Custom Token.
+ * Để nhận Firebase Custom Token hợp lệ, client phải đăng nhập qua POST /api/auth/login có xác thực mật khẩu.
  */
-router.post('/firebase-custom-token', authRateLimiter, async (req, res) => {
-  const userId = req.headers['x-user-id'];
-  if (!userId) {
-    return res.status(401).json({ success: false, message: 'Chưa đăng nhập.' });
-  }
-
-  const user = getUserById(userId);
-  if (!user) {
-    return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản.' });
-  }
-
-  const firebaseCustomToken = createFirebaseCustomToken({
-    uid: user.id,
-    username: user.username,
-    role: user.role || 'member'
+router.post('/firebase-custom-token', (req, res) => {
+  return res.status(403).json({
+    success: false,
+    message: 'Endpoint /firebase-custom-token đã bị vô hiệu hóa vì lý do an toàn. Vui lòng xác thực tài khoản qua POST /api/auth/login.'
   });
-
-  return res.json({ success: true, firebaseCustomToken });
 });
 
 /**

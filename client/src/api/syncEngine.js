@@ -11,6 +11,14 @@
  */
 
 export const VAULT_SCHEMA_VERSION = 3;
+
+/**
+ * CẢNH BÁO BẢO MẬT & GIỚI HẠN DEMO:
+ * VAULT_SECRET là chuỗi passphrase cố định công khai trong client bundle.
+ * Được cung cấp thuần túy nhằm mục đích trình diễn cấu trúc kỹ thuật AES-256-GCM + PBKDF2 (Portfolio Showcase).
+ * Việc sử dụng khóa công khai hardcode KHÔNG đem lại tính bảo mật thực tế hay Zero-Knowledge khi client bundle được công khai.
+ * KHÔNG sử dụng khóa mặc định này để lưu trữ thư bí mật thật hoặc dữ liệu cá nhân nhạy cảm.
+ */
 export const VAULT_SECRET = 'VaultSecretLetter_CoreShield_AESX_9941_K8';
 export const TOMBSTONE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 ngày (cho tombstone chi tiết)
 
@@ -87,7 +95,8 @@ export function base64ToBytes(base64) {
 
 /**
  * Mã hóa AES-256-GCM sử dụng Web Crypto API với PBKDF2 (100,000 vòng lặp)
- * Tuân thủ P0-03: Không hardcode khóa giải mã, không lưu khóa cùng dữ liệu.
+ * Lưu ý: Khi không truyền passphrase, hàm sử dụng VAULT_SECRET mặc định cho mục đích Demo.
+ * Khóa mặc định này công khai trong bundle, không đảm bảo bí mật cho dữ liệu cá nhân thật.
  */
 export async function cryptoEncryptAesGcm(payload, passphrase = VAULT_SECRET) {
   try {

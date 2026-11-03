@@ -1,14 +1,17 @@
 /**
- * Mock API Adapter cho GitHub Pages & Môi trường tĩnh
- * Khi chạy trên GitHub Pages (không có máy chủ Node.js/Express chạy ngầm),
- * bộ Adapter này tự động chuyển hướng các lệnh gọi /api vào LocalStorage,
- * giúp người dùng vẫn có thể trải nghiệm 100% tính năng với chuẩn bảo mật cao:
- * - Đăng nhập xác thực bảo mật SHA-256 (Admin, Thành viên)
- * - Quản lý tài khoản (Cấp tài khoản mới, Upload avatar, Khóa/Mở, Đổi mật khẩu)
- * - Soạn thảo và lưu lá thư (Đầy đủ ảnh kỷ niệm, nhạc nền, điều chưa nói, mật mã)
- * - Vibe Hub (4 chủ đề, Khóa 1 tên người nhận, Khóa 2 các ổ khóa thư riêng)
- * - Mở khóa thư, xem trước và chia sẻ
+ * Mock API Adapter cho GitHub Pages & Môi trường tĩnh (Personal Demo)
+ *
+ * LƯU Ý BẢO MẬT & GIỚI HẠN DEMO:
+ * 1. Các bản ghi `gh_mock_letters`, `gh_mock_users`, `gh_mock_vibe` được lưu trữ dưới dạng
+ *    chuỗi JSON thông thường (plaintext) trong LocalStorage của trình duyệt.
+ *    Đây là thiết kế thuần túy phục vụ trải nghiệm portfolio/demo, KHÔNG mã hóa dữ liệu cục bộ.
+ *    Bất kỳ ai mở Developer Tools đều có thể đọc được dữ liệu này. KHÔNG lưu trữ dữ liệu nhạy cảm.
+ * 2. Tính năng Đồng bộ Đám mây (Cloud Sync) được TẮT HOÀN TOÀN trong bản Personal Demo
+ *    để ngăn chặn các cuộc gọi mạng unauthenticated ra bên ngoài và bảo vệ an toàn cho dữ liệu.
  */
+
+// Cờ kiểm soát Cloud Sync cho Personal Demo (Tắt hoàn toàn mọi kết nối cloud tự động)
+export const CLOUD_SYNC_ENABLED = false;
 
 import {
   VAULT_SCHEMA_VERSION,
@@ -341,6 +344,10 @@ export function buildFirebaseRestUrl(baseUrl, idToken = getFirebaseAuthToken()) 
  * Đồng bộ với Firebase Realtime Database (Tự động giải mã và cập nhật với OCC, ETag & Tombstone)
  */
 export async function syncWithCloudDb() {
+  if (!CLOUD_SYNC_ENABLED) {
+    return { success: false, disabled: true, message: 'Cloud sync đã được tắt hoàn toàn trong bản Personal Demo.' };
+  }
+
   const cloudUrl = localStorage.getItem('gh_cloud_db_url') || DEFAULT_CLOUD_DB_URL;
   if (!cloudUrl) return { success: false, noUrl: true };
 
@@ -405,6 +412,10 @@ export async function syncWithCloudDb() {
  * Tuân thủ P0-01: Không mất dữ liệu, không retry vô hạn, không silent overwrite.
  */
 export async function pushToCloudDb(maxRetries = 3) {
+  if (!CLOUD_SYNC_ENABLED) {
+    return { success: false, disabled: true, message: 'Cloud sync đã được tắt hoàn toàn trong bản Personal Demo.' };
+  }
+
   const cloudUrl = localStorage.getItem('gh_cloud_db_url') || DEFAULT_CLOUD_DB_URL;
   if (!cloudUrl) return { success: false, noUrl: true };
 
@@ -565,17 +576,18 @@ export async function setupGitHubPagesMock() {
   // 3. Kiểm tra tham số link đồng bộ từ thiết bị khác (?sync=...)
   checkAndApplyUrlSync();
 
-  // 4. Kéo dữ liệu từ Cloud DB trước
-  const cloudResult = await syncWithCloudDb();
+  // 4. Cloud Sync đã bị TẮT HOÀN TOÀN trong bản Personal Demo
+  // Không gọi Cloud DB, không đăng ký trigger online/focus/interval gọi ra mạng ngoại vi
+  // Dữ liệu cũ trong LocalStorage hoặc cloud không bị xóa
 
-  // 5. DATA-01 FIX: Chỉ nạp seed-data.json khi là cold start (Local trống VÀ Cloud rỗng)
-  const lettersAfterCloud = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
-  const usersAfterCloud = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
-  const hasCustomMembers = usersAfterCloud.some(
+  // 5. Nạp seed-data.json khi thiết bị chưa có dữ liệu nào (Cold Start)
+  const lettersLocal = JSON.parse(localStorage.getItem('gh_mock_letters') || '[]');
+  const usersLocal = JSON.parse(localStorage.getItem('gh_mock_users') || '[]');
+  const hasCustomMembers = usersLocal.some(
     (u) => u.role !== 'admin' && u.username !== 'admin' && u.username !== 'tiendat'
   );
 
-  if (cloudResult?.cloudEmpty && lettersAfterCloud.length === 0 && !hasCustomMembers && !localStorage.getItem('gh_seed_applied')) {
+  if (lettersLocal.length === 0 && !hasCustomMembers && !localStorage.getItem('gh_seed_applied')) {
     try {
       const basePath = import.meta.env?.BASE_URL || '/';
       const seedUrl = `${basePath.endsWith('/') ? basePath : basePath + '/'}seed-data.json`;
@@ -590,20 +602,6 @@ export async function setupGitHubPagesMock() {
         .catch(() => {});
     } catch {}
   }
-
-  // 6. Lắng nghe sự kiện window focus và mạng internet để tự động đồng bộ
-  window.addEventListener('focus', () => {
-    syncWithCloudDb();
-  });
-  window.addEventListener('online', () => {
-    syncWithCloudDb();
-    if (localStorage.getItem('gh_pending_sync') === 'true') {
-      pushToCloudDb();
-    }
-  });
-  setInterval(() => {
-    syncWithCloudDb();
-  }, 45000);
 
   const originalFetch = window.fetch;
 

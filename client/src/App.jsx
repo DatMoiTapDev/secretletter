@@ -40,7 +40,7 @@ export default function App() {
       >
         <div className="bg-neutral-900/90 backdrop-blur-md text-amber-200 border border-amber-400/30 text-xs px-3 py-1.5 rounded-full shadow-lg pointer-events-auto flex items-center gap-2 font-sans">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-medium tracking-wide">Portfolio Demo • Lưu trữ cục bộ an toàn</span>
+          <span className="font-medium tracking-wide">Portfolio Demo • LocalStorage (Dữ liệu thử nghiệm)</span>
         </div>
       </aside>
 

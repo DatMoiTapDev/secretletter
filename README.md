@@ -20,18 +20,21 @@
 
 ---
 
-## ⚠️ Giới Hạn Bảo Mật & Lưu Ý Kỹ Thuật (Security Limitations)
+## ⚠️ Giới Hạn Bảo Mật & Lưu Ý Kỹ Thuật (Security Limitations & Disclaimers)
 
-Nhằm đảm bảo tính minh bạch tối đa (không quảng cáo sai lệch "an toàn tuyệt đối" hay "E2EE hoàn hảo"):
+Nhằm đảm bảo tính minh bạch kỹ thuật tối đa (không quảng cáo sai lệch "an toàn tuyệt đối", "mã hóa cục bộ" hay "E2EE hoàn hảo"):
 
-1. **Chế độ Portfolio Demo (GitHub Pages)**:
-   - Trên phiên bản web tĩnh GitHub Pages, ứng dụng mặc định hoạt động ở **Chế độ Lưu trữ Cục bộ (Local Encrypted Storage)**.
-   - Toàn bộ dữ liệu thư nháp, tài khoản demo được mã hóa AES-256-GCM và lưu trong trình duyệt của bạn (`LocalStorage`), không gửi dữ liệu ra máy chủ bên ngoài để tránh ô nhiễm dữ liệu và đảm bảo quyền riêng tư.
-2. **Giới Hạn Quên Mật Mã (Zero-Knowledge Passphrase)**:
-   - Mật mã bảo vệ lá thư (Khóa tầng 2) được dẫn xuất trực tiếp qua PBKDF2 (100,000 vòng lặp) để mã hóa nội dung.
-   - Nếu người gửi quên mật mã, nội dung lá thư là **không thể khôi phục** (không có backdoor hoặc master key).
-3. **Môi Trường Máy Chủ (Backend / Firebase Integration)**:
-   - Tính năng đồng bộ đám mây đa thiết bị yêu cầu cấu hình Firebase Realtime Database và máy chủ Backend ký token RS256 riêng biệt. Phiên bản Portfolio không kích hoạt kết nối cloud production mặc định.
+1. **Lưu trữ Cục bộ trên GitHub Pages (Plain JSON LocalStorage)**:
+   - Trong bản demo web tĩnh (GitHub Pages), dữ liệu tài khoản (`gh_mock_users`), thư (`gh_mock_letters`) và Vibe Hub được lưu trữ dưới dạng **JSON thông thường (plaintext)** trong `LocalStorage` của trình duyệt người dùng.
+   - Bất kỳ ai mở Developer Tools (F12) đều có thể xem và chỉnh sửa dữ liệu này. **Tuyệt đối KHÔNG lưu trữ mật khẩu thật, thư nhạy cảm hoặc bí mật cá nhân** trong phiên bản demo này.
+2. **Khóa Mặc Định `VAULT_SECRET` (Hardcoded Secret Limitation)**:
+   - Trong mã nguồn frontend, chuỗi `VAULT_SECRET` là passphrase cố định công khai trong client bundle, dùng để trình diễn thuật toán mã hóa AES-256-GCM + PBKDF2 (100,000 rounds).
+   - Việc dùng khóa công khai hardcode **không đem lại tính bảo mật thực tế**. Khi ứng dụng hoạt động không có mật khẩu người dùng tự chọn, dữ liệu mã hóa này có thể bị giải mã bởi bất kỳ ai có client bundle.
+3. **Tính Năng Đồng Bộ Đám Mây (Cloud Sync Đã Tắt Hoàn Toàn)**:
+   - Để ngăn ngừa các cuộc gọi mạng unauthenticated ra ngoài, chống rò rỉ dữ liệu và bảo vệ tính nguyên vẹn của hệ thống, tính năng Cloud Sync tự động **đã bị tắt hoàn toàn** trong bản demo này (kể cả khi LocalStorage có URL cũ hoặc URL truyền qua query string).
+   - Dữ liệu người dùng trên máy hiện tại không bị xóa. Để chuyển dữ liệu giữa các máy, người dùng có thể dùng **Quét Mã QR** hoặc **Xuất/Nạp File .json dự phòng**.
+4. **Không Có Cơ Chế Khôi Phục Mật Mã**:
+   - Khi người dùng đặt mật mã riêng cho từng lá thư, nội dung được mã hóa theo mật mã đó. Nếu quên mật mã, nội dung lá thư sẽ vĩnh viễn không thể khôi phục do không có backdoor hay master key giải mã.
 
 ---
 

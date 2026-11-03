@@ -9,6 +9,7 @@ import {
   createFirebaseCustomToken,
   verifyFirebaseIdToken
 } from '../auth.js';
+import authRouter from '../routes/auth.js';
 import {
   migrateToV3Payload,
   cryptoEncryptAesGcm,
@@ -367,5 +368,37 @@ test('RC1.1 — Firebase Auth Integration & Emulator Verification Suite', async 
     assert.strictEqual(payload.claims.role, 'member');
     assert.strictEqual(payload.claims.username, 'alice');
     assert.strictEqual(payload.aud, 'https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit');
+  });
+
+  // 13. HOTFIX: Endpoint /firebase-custom-token is disabled (HTTP 403) and rejects client-supplied x-user-id
+  await t.test('13. Endpoint /api/auth/firebase-custom-token is disabled (HTTP 403) and rejects client x-user-id', async () => {
+    const route = authRouter.stack.find(
+      (layer) => layer.route && layer.route.path === '/firebase-custom-token' && layer.route.methods.post
+    );
+    assert.ok(route, 'Route /firebase-custom-token must exist');
+
+    let responseStatus = 0;
+    let responseBody = null;
+    const req = {
+      headers: { 'x-user-id': 'usr_tiendat_root' },
+      body: {}
+    };
+    const res = {
+      status(code) {
+        responseStatus = code;
+        return this;
+      },
+      json(data) {
+        responseBody = data;
+        return this;
+      }
+    };
+
+    const handler = route.route.stack[0].handle;
+    await handler(req, res);
+
+    assert.strictEqual(responseStatus, 403, 'Must return HTTP 403 Forbidden');
+    assert.strictEqual(responseBody.success, false);
+    assert.match(responseBody.message, /vô hiệu hóa/i);
   });
 });
