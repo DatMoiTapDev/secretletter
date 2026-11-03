@@ -305,6 +305,15 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
         {/* ================= TAB 1: QUÉT QR HOẶC GỬI LINK ================= */}
         {activeTab === 'qr' && (
           <div className="space-y-5">
+            {/* CẢNH BÁO BẢO MẬT DEMO */}
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2.5 leading-relaxed">
+              <AlertCircle size={16} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <div>
+                <span className="font-bold block mb-0.5">Lưu ý bảo mật (Personal Demo):</span>
+                <span>Mã QR và đường link đồng bộ chứa dữ liệu tài khoản ở định dạng có thể đọc được (plaintext). Tuyệt đối không dùng để chia sẻ tài khoản thật hoặc dữ liệu riêng tư.</span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
               {/* KHUNG HIỂN THỊ MÃ QR */}
               <div className="flex flex-col items-center justify-center p-5 rounded-2xl bg-white text-neutral-900 border border-neutral-300 shadow-md">
@@ -393,6 +402,15 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
         {/* ================= TAB 2: SAO LƯU & FILE JSON ================= */}
         {activeTab === 'backup' && (
           <div className="space-y-5">
+            {/* CẢNH BÁO BẢO MẬT DEMO */}
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2.5 leading-relaxed">
+              <AlertCircle size={16} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <div>
+                <span className="font-bold block mb-0.5">Lưu ý bảo mật (Personal Demo):</span>
+                <span>File <code>.json</code> xuất ra là văn bản thông thường (plaintext), không được mã hóa. Bất kỳ ai có file này đều có thể đọc toàn bộ danh sách tài khoản và các lá thư. Tuyệt đối không dùng cho thư riêng tư hoặc bí mật cá nhân.</span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* TẢI FILE BACKUP */}
               <div
@@ -405,7 +423,7 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
                   <span>1. Tải File Dữ Liệu Dự Phòng</span>
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                  Xuất toàn bộ danh sách tài khoản, các lá thư và Vibe Hub ra file <code>.json</code> để lưu trữ an toàn hoặc chuyển sang thiết bị khác.
+                  Xuất toàn bộ danh sách tài khoản, các lá thư và Vibe Hub ra file <code>.json</code> để sao lưu hoặc chuyển sang thiết bị khác.
                 </p>
                 <button
                   type="button"

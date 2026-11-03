@@ -61,7 +61,7 @@ assert.strictEqual(migratedData.letters.length, backupData.letters.length);
 | **Hiện đại (v3)** | AES-256-GCM + PBKDF2 (100k iter) | Dẫn xuất từ mật mã do người gửi đặt | **Không thể khôi phục** nếu mất mật mã (Zero-Knowledge Passphrase) |
 
 > [!WARNING] Giới hạn thiết kế bảo mật quan trọng
-> Trong chuẩn Schema v3, nếu người gửi quên mật mã mở thư, nội dung thư sẽ **không thể khôi phục** bởi bất kỳ ai (kể cả Quản trị viên). Điều này đảm bảo tính riêng tư tuyệt đối cho bức thư tâm tình của người dùng.
+> Trong chuẩn Schema v3, nếu người gửi quên mật mã mở thư, nội dung thư sẽ **không thể khôi phục** bởi bất kỳ ai (kể cả Quản trị viên). Thiết kế này nhằm hạn chế tối đa việc truy cập trái phép vào bức thư tâm tình của người dùng.
 
 ---
 

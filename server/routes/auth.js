@@ -59,21 +59,14 @@ router.post('/firebase-custom-token', (req, res) => {
 
 /**
  * GET /api/auth/me
- * Lấy thông tin tài khoản hiện tại
+ * ĐÃ VÔ HIỆU HÓA: Không tin cậy header x-user-id từ client để truy vấn thông tin người dùng.
+ * Client nhận thông tin người dùng an toàn trực tiếp từ phản hồi của POST /api/auth/login.
  */
 router.get('/me', (req, res) => {
-  const userId = req.headers['x-user-id'];
-  if (!userId) {
-    return res.status(401).json({ success: false, message: 'Chưa đăng nhập.' });
-  }
-
-  const user = getUserById(userId);
-  if (!user) {
-    return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản.' });
-  }
-
-  const { passwordHash, ...safeUser } = user;
-  return res.json({ success: true, user: safeUser });
+  return res.status(403).json({
+    success: false,
+    message: 'Endpoint /api/auth/me đã bị vô hiệu hóa vì lý do an toàn. Thông tin phiên được trả về trực tiếp qua POST /api/auth/login.'
+  });
 });
 
 export default router;

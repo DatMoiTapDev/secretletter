@@ -65,7 +65,7 @@
    - Quét tĩnh toàn bộ các file JS trong thư mục `dist/assets/` xác nhận không có bất kỳ khóa riêng tư hoặc mật khẩu quản trị nào bị hardcode.
 6. **Status**: **VERIFIED**.
 7. **Remaining Risks & Giới hạn thiết kế**:
-   - **Tuyên bố bảo mật**: Hệ thống sử dụng mô hình Zero-Knowledge Passphrase Encryption. Nếu người gửi quên mật mã của lá thư, nội dung tâm thư là **không thể khôi phục** (không có backdoor hoặc escrow). Đây là chủ đích thiết kế nhằm đảm bảo quyền riêng tư tuyệt đối cho người dùng.
+   - **Tuyên bố bảo mật**: Hệ thống sử dụng mô hình Zero-Knowledge Passphrase Encryption. Nếu người gửi quên mật mã của lá thư, nội dung tâm thư là **không thể khôi phục** (không có backdoor hoặc escrow). Đây là chủ đích thiết kế nhằm bảo vệ quyền riêng tư của người dùng.
 
 ---
 
