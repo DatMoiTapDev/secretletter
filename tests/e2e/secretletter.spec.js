@@ -55,7 +55,7 @@ test.describe('Digital Secret Letter — Pre-Production E2E Regression Journey',
 
     if (await usernameInput.isVisible() && await passwordInput.isVisible()) {
       await usernameInput.fill('admin');
-      await passwordInput.fill('Tiendat@2006');
+      await passwordInput.fill('DemoPassword@2026');
       const loginBtn = page.locator('button[type="submit"]');
       await loginBtn.click();
       await page.waitForTimeout(500);
