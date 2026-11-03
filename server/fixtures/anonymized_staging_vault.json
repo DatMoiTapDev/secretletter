@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 2,
+  "updatedAt": "2026-10-15T08:30:00.000Z",
+  "revision": 12,
+  "letters": [
+    {
+      "id": "let_demo_autumn_001",
+      "title": "Gửi mùa thu dịu dàng (Bản mẫu kiểm thử)",
+      "content": "Đây là nội dung thư mẫu ẩn danh dùng cho diễn tập di trú hệ thống Staging.",
+      "recipientName": "Minh Anh",
+      "recipientUsername": "minhanh_demo",
+      "senderId": "usr_member_alice",
+      "senderUsername": "alice_demo",
+      "theme": "vintage",
+      "musicId": "gentle_piano",
+      "musicUrl": "https://assets.mixkit.co/music/preview/mixkit-piano-reflections-22.mp3",
+      "isLocked": true,
+      "passcode": "autumn2026",
+      "hint": "Mùa đẹp nhất trong năm",
+      "status": "published",
+      "createdAt": "2026-10-15T08:30:00.000Z"
+    },
+    {
+      "id": "let_demo_birthday_002",
+      "title": "Chúc mừng tuổi mới rực rỡ (Bản mẫu kiểm thử)",
+      "content": "Một lá thư sinh nhật ẩn danh kiểm thử tính năng giải mã và phục hồi.",
+      "recipientName": "Bảo Ngọc",
+      "recipientUsername": "baongoc_demo",
+      "senderId": "usr_member_bob",
+      "senderUsername": "bob_demo",
+      "theme": "cute",
+      "musicId": "happy_acoustic",
+      "musicUrl": "https://assets.mixkit.co/music/preview/mixkit-sweet-melody-120.mp3",
+      "isLocked": false,
+      "status": "published",
+      "createdAt": "2026-10-16T09:15:00.000Z"
+    },
+    {
+      "id": "let_demo_broadcast_003",
+      "title": "Thông báo chào mừng hệ thống (Bản mẫu kiểm thử)",
+      "content": "Thư thông báo phát sóng công khai toàn bộ thành viên.",
+      "recipientName": "Tất cả thành viên",
+      "recipientUsername": "all",
+      "isBroadcast": true,
+      "senderId": "usr_root_admin",
+      "senderUsername": "admin",
+      "theme": "classic",
+      "status": "published",
+      "createdAt": "2026-10-17T10:00:00.000Z"
+    }
+  ],
+  "users": [
+    {
+      "id": "usr_root_admin",
+      "username": "admin",
+      "displayName": "Quản Trị Viên (Demo)",
+      "role": "admin",
+      "status": "active",
+      "createdAt": "2026-10-01T00:00:00.000Z"
+    },
+    {
+      "id": "usr_member_alice",
+      "username": "alice_demo",
+      "displayName": "Alice Nguyễn (Demo)",
+      "role": "member",
+      "status": "active",
+      "createdAt": "2026-10-02T00:00:00.000Z"
+    },
+    {
+      "id": "usr_member_bob",
+      "username": "bob_demo",
+      "displayName": "Bob Trần (Demo)",
+      "role": "member",
+      "status": "active",
+      "createdAt": "2026-10-03T00:00:00.000Z"
+    }
+  ],
+  "vibe": {
+    "love": { "id": "love", "name": "Tình yêu", "emoji": "💖", "recipients": ["minhanh_demo"] },
+    "friendship": { "id": "friendship", "name": "Tri kỷ", "emoji": "🌿", "recipients": ["baongoc_demo"] }
+  },
+  "tombstones": {
+    "letters": {
+      "let_deleted_sample_999": "2026-10-05T00:00:00.000Z"
+    },
+    "users": {}
+  }
+}

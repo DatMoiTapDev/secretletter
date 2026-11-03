@@ -14,6 +14,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
+import { signInWithCustomToken, setFirebaseAuthSession } from '../api/firebaseAuth';
 
 export default function MemberLogin() {
   const navigate = useNavigate();
@@ -72,6 +73,13 @@ export default function MemberLogin() {
 
       const data = await res.json();
       if (res.ok && data.success) {
+        if (data.firebaseCustomToken) {
+          try {
+            await signInWithCustomToken(data.firebaseCustomToken);
+          } catch (e) {
+            console.warn('Firebase custom token exchange fallback:', e);
+          }
+        }
         const isAdmin = data.user.role === 'admin' || data.user.username === 'admin' || data.user.username === 'tiendat';
         if (isAdmin) {
           localStorage.setItem('admin_token', data.token);

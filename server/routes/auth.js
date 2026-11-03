@@ -1,12 +1,14 @@
 import express from 'express';
 import { authenticateMember, getUserById } from '../userDb.js';
 import { authRateLimiter } from '../security.js';
+import { createFirebaseCustomToken } from '../auth.js';
 
 const router = express.Router();
 
 /**
  * POST /api/auth/login
  * Đăng nhập thành viên (có bảo vệ chống brute force)
+ * Cung cấp Firebase Custom Token chính thức cho client
  */
 router.post('/login', authRateLimiter, async (req, res) => {
   const { username, password } = req.body;
@@ -24,10 +26,18 @@ router.post('/login', authRateLimiter, async (req, res) => {
     // Tạo token phiên đăng nhập đơn giản an toàn
     const sessionToken = `usr_token_${result.user.id}_${Date.now()}`;
 
+    // Cấp phát Firebase Custom Token chính thức
+    const firebaseCustomToken = createFirebaseCustomToken({
+      uid: result.user.id,
+      username: result.user.username,
+      role: result.user.role || 'member'
+    });
+
     return res.json({
       success: true,
       user: result.user,
-      token: sessionToken
+      token: sessionToken,
+      firebaseCustomToken
     });
   } catch (err) {
     console.error('Lỗi đăng nhập thành viên:', err);
@@ -36,22 +46,27 @@ router.post('/login', authRateLimiter, async (req, res) => {
 });
 
 /**
+ * POST /api/auth/firebase-custom-token
+ * ĐÃ VÔ HIỆU HÓA: Không tin cậy header x-user-id từ client để cấp phát Custom Token.
+ * Để nhận Firebase Custom Token hợp lệ, client phải đăng nhập qua POST /api/auth/login có xác thực mật khẩu.
+ */
+router.post('/firebase-custom-token', (req, res) => {
+  return res.status(403).json({
+    success: false,
+    message: 'Endpoint /firebase-custom-token đã bị vô hiệu hóa vì lý do an toàn. Vui lòng xác thực tài khoản qua POST /api/auth/login.'
+  });
+});
+
+/**
  * GET /api/auth/me
- * Lấy thông tin tài khoản hiện tại
+ * ĐÃ VÔ HIỆU HÓA: Không tin cậy header x-user-id từ client để truy vấn thông tin người dùng.
+ * Client nhận thông tin người dùng an toàn trực tiếp từ phản hồi của POST /api/auth/login.
  */
 router.get('/me', (req, res) => {
-  const userId = req.headers['x-user-id'];
-  if (!userId) {
-    return res.status(401).json({ success: false, message: 'Chưa đăng nhập.' });
-  }
-
-  const user = getUserById(userId);
-  if (!user) {
-    return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản.' });
-  }
-
-  const { passwordHash, ...safeUser } = user;
-  return res.json({ success: true, user: safeUser });
+  return res.status(403).json({
+    success: false,
+    message: 'Endpoint /api/auth/me đã bị vô hiệu hóa vì lý do an toàn. Thông tin phiên được trả về trực tiếp qua POST /api/auth/login.'
+  });
 });
 
 export default router;

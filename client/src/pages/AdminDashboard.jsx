@@ -40,6 +40,7 @@ import ShareModal from '../components/ShareModal';
 import UserAvatar from '../components/UserAvatar';
 import { soundEngine } from '../audio/soundEngine';
 import { getAppUrl, copyToClipboard } from '../utils/url';
+import { EmptyLettersScreen, EmptyUsersScreen, OfflineNoticeBanner } from '../components/ErrorScreens';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -51,6 +52,18 @@ export default function AdminDashboard() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(0.4);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleToggleDarkMode = () => {
     soundEngine.playClickSound();
@@ -702,7 +715,9 @@ export default function AdminDashboard() {
       isDarkMode ? 'bg-neutral-950 text-neutral-100' : 'bg-[#faf8f5] text-neutral-900'
     }`}>
       <div className="max-w-6xl mx-auto space-y-8">
-        
+        {/* THANH BÁO NGOẠI TUYẾN / ĐỒNG BỘ */}
+        <OfflineNoticeBanner isOffline={isOffline} pendingSync={Boolean(localStorage.getItem('gh_pending_sync'))} />
+
         {/* HEADER QUẢN TRỊ */}
         <header className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-6 transition-colors ${
           isDarkMode ? 'border-white/10' : 'border-neutral-200'
@@ -1365,14 +1380,15 @@ export default function AdminDashboard() {
             </div>
 
             {users.length === 0 ? (
-              <div className={`p-12 rounded-3xl border border-dashed text-center space-y-3 ${
-                isDarkMode ? 'bg-neutral-900/60 border-white/10 text-neutral-400' : 'bg-white border-neutral-300 text-stone-500 shadow-xs'
+              <div className={`p-8 rounded-3xl border border-dashed text-center ${
+                isDarkMode ? 'bg-neutral-900/60 border-white/10' : 'bg-white border-neutral-300 shadow-xs'
               }`}>
-                <Users size={36} className="mx-auto opacity-40" />
-                <p className="font-serif text-base font-medium">Chưa có tài khoản thành viên nào.</p>
-                <p className="text-xs opacity-75 max-w-sm mx-auto">
-                  Hãy bấm "Cấp Tài Khoản Mới" để tạo tài khoản cho người dùng mà bạn muốn cho phép gửi thư.
-                </p>
+                <EmptyUsersScreen onAddUserClick={() => {
+                  soundEngine.playClickSound();
+                  setUserError('');
+                  setUserForm({ username: '', password: '', displayName: '', avatar: '🌸' });
+                  setUserModalOpen(true);
+                }} />
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

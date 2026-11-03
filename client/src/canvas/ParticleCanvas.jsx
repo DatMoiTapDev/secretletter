@@ -1,22 +1,48 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 /**
- * Particle Canvas Engine: Hệ thống hiệu ứng hạt Canvas tối ưu hiệu năng 60fps
- * Hỗ trợ 8 loại hạt phù hợp hoàn hảo với từng chủ đề
+ * Particle Canvas Engine: Hệ thống hiệu ứng hạt Canvas tối ưu hiệu năng
+ * - Tự động giới hạn FPS (35 FPS trên thiết bị di động, 60 FPS trên máy tính) tránh hao pin/GPU
+ * - Lắng nghe visibilitychange: Tự động tạm dừng hoàn toàn vòng lặp render khi chuyển tab hoặc khóa màn hình
+ * - Tôn trọng thiết lập trợ năng prefers-reduced-motion của người dùng
+ * - Giảm số lượng hạt thông minh theo kích thước màn hình
  */
 export default function ParticleCanvas({ particleType = 'snow', active = true }) {
   const canvasRef = useRef(null);
+  const [reducedMotion, setReducedMotion] = useState(() => {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+    return false;
+  });
+
+  // Lắng nghe thay đổi thiết lập prefers-reduced-motion
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handleMotionChange = (e) => setReducedMotion(e.matches);
+    mediaQuery.addEventListener('change', handleMotionChange);
+    return () => mediaQuery.removeEventListener('change', handleMotionChange);
+  }, []);
 
   useEffect(() => {
-    if (!active || particleType === 'minimal') return;
+    if (!active || particleType === 'minimal' || reducedMotion) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
-    let animationFrameId;
+    const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx) return;
+
+    let animationFrameId = null;
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
+
+    // Giới hạn FPS thích ứng: 35 FPS trên Mobile/Tablet để tiết kiệm pin, 60 FPS trên Desktop
+    const isMobile = width < 768;
+    const targetFps = isMobile ? 35 : 60;
+    const frameInterval = 1000 / targetFps;
+    let lastFrameTime = performance.now();
 
     const handleResize = () => {
       if (!canvas) return;
@@ -25,12 +51,11 @@ export default function ParticleCanvas({ particleType = 'snow', active = true })
       initParticles();
     };
 
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize, { passive: true });
 
     // Danh sách các hạt
     let particles = [];
-    const isMobile = width < 768;
-    const count = isMobile ? 35 : 70; // Giảm số lượng trên mobile để tiết kiệm pin
+    const count = isMobile ? 28 : (width < 1024 ? 45 : 65);
 
     function initParticles() {
       particles = [];
@@ -40,9 +65,9 @@ export default function ParticleCanvas({ particleType = 'snow', active = true })
           particles.push({
             x: Math.random() * width,
             y: Math.random() * height,
-            radius: Math.random() * 3 + 1,
+            radius: Math.random() * 2.8 + 1,
             density: Math.random() * 20,
-            speedY: Math.random() * 1.5 + 0.6,
+            speedY: Math.random() * 1.4 + 0.6,
             speedX: Math.random() * 0.8 - 0.4,
             opacity: Math.random() * 0.7 + 0.3
           });
@@ -52,13 +77,13 @@ export default function ParticleCanvas({ particleType = 'snow', active = true })
           particles.push({
             x: Math.random() * width,
             y: Math.random() * height,
-            size: Math.random() * 8 + 6,
+            size: Math.random() * 7 + 5,
             color: isYellow ? '#F7D046' : '#FF9BB2',
             secondaryColor: isYellow ? '#E89814' : '#FF6584',
-            speedY: Math.random() * 1.8 + 0.8,
+            speedY: Math.random() * 1.6 + 0.7,
             speedX: Math.random() * 1.2 - 0.6,
             rotation: Math.random() * 360,
-            rotationSpeed: (Math.random() - 0.5) * 2,
+            rotationSpeed: (Math.random() - 0.5) * 1.8,
             swing: Math.random() * 2,
             swingSpeed: Math.random() * 0.03 + 0.01,
             swingAngle: Math.random() * Math.PI * 2
@@ -69,20 +94,20 @@ export default function ParticleCanvas({ particleType = 'snow', active = true })
           particles.push({
             x: Math.random() * width,
             y: Math.random() * height,
-            w: Math.random() * 7 + 4,
-            h: Math.random() * 10 + 6,
+            w: Math.random() * 6 + 4,
+            h: Math.random() * 9 + 5,
             color: colors[Math.floor(Math.random() * colors.length)],
-            speedY: Math.random() * 2.2 + 1,
-            speedX: Math.random() * 1.5 - 0.75,
+            speedY: Math.random() * 2.0 + 0.9,
+            speedX: Math.random() * 1.4 - 0.7,
             rotation: Math.random() * 360,
-            rotationSpeed: (Math.random() - 0.5) * 6
+            rotationSpeed: (Math.random() - 0.5) * 5
           });
         } else if (particleType === 'stars') {
           // Bầu trời đêm tĩnh lặng & Sao rơi
           particles.push({
             x: Math.random() * width,
             y: Math.random() * height,
-            radius: Math.random() * 1.8 + 0.5,
+            radius: Math.random() * 1.6 + 0.5,
             alpha: Math.random(),
             pulseSpeed: Math.random() * 0.02 + 0.005,
             color: Math.random() > 0.3 ? '#ffffff' : '#bae6fd'
@@ -93,9 +118,9 @@ export default function ParticleCanvas({ particleType = 'snow', active = true })
           particles.push({
             x: Math.random() * width,
             y: height + Math.random() * 100,
-            size: Math.random() * 10 + 6,
+            size: Math.random() * 9 + 5,
             color: colors[Math.floor(Math.random() * colors.length)],
-            speedY: -(Math.random() * 1.2 + 0.5), // Bay lên
+            speedY: -(Math.random() * 1.1 + 0.5),
             speedX: Math.random() * 0.8 - 0.4,
             opacity: Math.random() * 0.6 + 0.3,
             wobble: Math.random() * Math.PI * 2,
@@ -108,8 +133,8 @@ export default function ParticleCanvas({ particleType = 'snow', active = true })
             x: Math.random() * width,
             y: Math.random() * height,
             emoji: emojiList[Math.floor(Math.random() * emojiList.length)],
-            size: Math.random() * 10 + 14,
-            speedY: Math.random() * 1.2 + 0.4,
+            size: Math.random() * 8 + 12,
+            speedY: Math.random() * 1.1 + 0.4,
             speedX: Math.random() * 0.8 - 0.4,
             opacity: Math.random() * 0.7 + 0.3
           });
@@ -118,7 +143,7 @@ export default function ParticleCanvas({ particleType = 'snow', active = true })
           particles.push({
             x: Math.random() * width,
             y: Math.random() * height,
-            radius: Math.random() * 2 + 0.5,
+            radius: Math.random() * 1.8 + 0.5,
             speedY: -(Math.random() * 0.6 + 0.2),
             speedX: Math.random() * 0.4 - 0.2,
             alpha: Math.random() * 0.8 + 0.2,
@@ -130,11 +155,19 @@ export default function ParticleCanvas({ particleType = 'snow', active = true })
 
     initParticles();
 
-    // Vòng lặp render canvas
-    const render = () => {
+    // Vòng lặp render canvas tối ưu FPS và delta time
+    const render = (now) => {
+      animationFrameId = requestAnimationFrame(render);
+
+      // Bỏ qua frame nếu chưa đến chu kỳ interval mục tiêu
+      const elapsed = now - lastFrameTime;
+      if (elapsed < frameInterval) return;
+      lastFrameTime = now - (elapsed % frameInterval);
+
       ctx.clearRect(0, 0, width, height);
 
-      particles.forEach((p) => {
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
         if (particleType === 'snow') {
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
@@ -157,7 +190,6 @@ export default function ParticleCanvas({ particleType = 'snow', active = true })
           ctx.translate(p.x, p.y);
           ctx.rotate((p.rotation * Math.PI) / 180);
 
-          // Vẽ cánh hoa mai/đào
           ctx.beginPath();
           ctx.ellipse(0, 0, p.size * 0.6, p.size, 0, 0, Math.PI * 2);
           const grad = ctx.createLinearGradient(0, -p.size, 0, p.size);
@@ -198,8 +230,6 @@ export default function ParticleCanvas({ particleType = 'snow', active = true })
           ctx.globalAlpha = currentAlpha * 0.8 + 0.2;
           ctx.fill();
           ctx.globalAlpha = 1;
-
-          // Chớp tắt tại chỗ
         } else if (particleType === 'hearts') {
           p.wobble += p.wobbleSpeed;
           p.x += Math.sin(p.wobble) * 0.8;
@@ -210,7 +240,6 @@ export default function ParticleCanvas({ particleType = 'snow', active = true })
           ctx.globalAlpha = p.opacity;
           ctx.fillStyle = p.color;
 
-          // Vẽ hình trái tim bằng đường cong bezier
           const s = p.size / 15;
           ctx.scale(s, s);
           ctx.beginPath();
@@ -246,10 +275,7 @@ export default function ParticleCanvas({ particleType = 'snow', active = true })
           ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
           ctx.fillStyle = '#C58D34';
           ctx.globalAlpha = Math.abs(Math.sin(p.alpha)) * 0.7 + 0.3;
-          ctx.shadowBlur = 6;
-          ctx.shadowColor = '#D4AF37';
           ctx.fill();
-          ctx.shadowBlur = 0;
           ctx.globalAlpha = 1;
 
           if (p.y < -10) {
@@ -257,20 +283,35 @@ export default function ParticleCanvas({ particleType = 'snow', active = true })
             p.x = Math.random() * width;
           }
         }
-      });
-
-      animationFrameId = requestAnimationFrame(render);
+      }
     };
 
-    render();
+    // Tự động tạm dừng / khôi phục khi chuyển tab (Visibility Lifecycle)
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = null;
+        }
+      } else {
+        if (!animationFrameId) {
+          lastFrameTime = performance.now();
+          animationFrameId = requestAnimationFrame(render);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    animationFrameId = requestAnimationFrame(render);
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [particleType, active]);
+  }, [particleType, active, reducedMotion]);
 
-  if (!active || particleType === 'minimal') return null;
+  if (!active || particleType === 'minimal' || reducedMotion) return null;
 
   return (
     <canvas

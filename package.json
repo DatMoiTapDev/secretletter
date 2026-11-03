@@ -8,6 +8,7 @@
     "dev:server": "node server/index.js",
     "dev:client": "vite",
     "dev": "concurrently \"node server/index.js\" \"vite\"",
+    "test": "node --test server/tests/*.test.js",
     "build": "vite build",
     "start": "node server/index.js",
     "push:git": "node server/scripts/sync_git.js",

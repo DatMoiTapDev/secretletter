@@ -17,8 +17,23 @@ export default function Envelope3D({
   const [letterRising, setLetterRising] = useState(false);
   const [lightBurst, setLightBurst] = useState(false);
 
+  // Kiểm tra thiết lập giảm chuyển động của hệ điều hành
+  const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+
   useEffect(() => {
     if (isUnlocked) {
+      // Nếu bật reduced-motion, bỏ qua chuỗi diễn hoạt dài để bảo vệ thị giác
+      if (prefersReducedMotion) {
+        soundEngine.playWaxSealSound();
+        soundEngine.playUnlockSound();
+        const fastTimer = setTimeout(() => {
+          if (onAnimationComplete) onAnimationComplete();
+        }, 120);
+        return () => clearTimeout(fastTimer);
+      }
+
       // 1. Phá vỡ con dấu sáp
       setSealCracked(true);
       soundEngine.playWaxSealSound();
@@ -53,7 +68,7 @@ export default function Envelope3D({
         clearTimeout(finishTimer);
       };
     }
-  }, [isUnlocked, onAnimationComplete]);
+  }, [isUnlocked, onAnimationComplete, prefersReducedMotion]);
 
   // Lấy class con dấu theo theme
   const getSealClass = (type) => {
@@ -221,10 +236,11 @@ export default function Envelope3D({
       </div>
 
       {/* Nút bấm mở khóa phong bì */}
-      {!isUnlocked && (
-        <div className="mt-8 z-20">
+      {!isUnlocked ? (
+        <div className="mt-8 z-20 flex flex-col items-center gap-2.5">
           <button
             type="button"
+            aria-label="Mở khóa lá thư"
             onClick={() => {
               soundEngine.playClickSound();
               onUnlockClick();
@@ -234,6 +250,21 @@ export default function Envelope3D({
             <Lock size={18} className="transition-transform group-hover:-translate-y-0.5" />
             <span className="text-base font-serif font-bold">MỞ KHÓA LÁ THƯ</span>
             <Sparkles size={16} className="text-neutral-900 animate-spin" style={{ animationDuration: '4s' }} />
+          </button>
+        </div>
+      ) : (
+        /* Nút bỏ qua animation khi đang diễn họa mở thư */
+        <div className="mt-8 z-20">
+          <button
+            type="button"
+            aria-label="Bỏ qua hiệu ứng mở phong bì và đọc thư ngay"
+            onClick={() => {
+              soundEngine.playClickSound();
+              if (onAnimationComplete) onAnimationComplete();
+            }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-900/80 hover:bg-neutral-800 text-amber-300 border border-amber-400/30 text-xs font-serif font-semibold shadow-lg backdrop-blur-md transition-all cursor-pointer hover:scale-105"
+          >
+            <span>Đọc thư ngay ⚡</span>
           </button>
         </div>
       )}

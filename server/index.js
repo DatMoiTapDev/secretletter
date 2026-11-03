@@ -4,7 +4,7 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import lettersRouter from './routes/letters.js';
+import { requireAdmin, safeCompare } from './auth.js';
 import uploadRouter from './routes/upload.js';
 import vibeHubRouter from './routes/vibeHub.js';
 import authRouter from './routes/auth.js';
@@ -53,12 +53,19 @@ app.use('/api/auth', authRouter);
 app.use('/api/admin/users', adminUsersRouter);
 app.use('/api/user/letters', userLettersRouter);
 
-// API Verify Admin Passcode endpoint (kèm Rate Limiting chống dò mật khẩu)
+// API Verify Admin Passcode endpoint (kèm Rate Limiting chống dò mật khẩu & Constant-Time comparison)
 app.post('/api/admin/verify', authRateLimiter, (req, res) => {
-  const { password } = req.body;
+  const { password } = req.body || {};
   const adminSecret = process.env.ADMIN_KEY || '';
 
-  if (password && password === adminSecret) {
+  if (!adminSecret || adminSecret.trim() === '') {
+    return res.status(503).json({
+      success: false,
+      message: 'ADMIN_KEY chưa được cấu hình an toàn trên máy chủ. Mọi truy cập bị từ chối mặc định.'
+    });
+  }
+
+  if (password && safeCompare(password.trim(), adminSecret.trim())) {
     return res.json({ success: true, token: adminSecret });
   }
 

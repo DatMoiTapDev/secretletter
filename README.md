@@ -1,23 +1,44 @@
-# 💌 Digital Secret Letter - Nền Tảng Lá Thư Bí Mật Kỹ Thuật Số
+# 💌 Digital Secret Letter — Personal Demo & Portfolio Project
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Project-Personal%20Demo%20%2F%20Portfolio-amber?style=for-the-badge" />
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black" />
   <img src="https://img.shields.io/badge/Vite-5-646CFF?style=for-the-badge&logo=vite&logoColor=white" />
   <img src="https://img.shields.io/badge/TailwindCSS-3-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" />
-  <img src="https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=node.js&logoColor=white" />
-  <img src="https://img.shields.io/badge/Security-Protected-FFD700?style=for-the-badge&logo=auth0&logoColor=black" />
+  <img src="https://img.shields.io/badge/Web%20Crypto-AES--256--GCM-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" />
 </p>
 
 <p align="center">
-  🌐 <b>Website Trực Tuyến (Live Demo):</b> <a href="https://datmoitapdev.github.io/secretletter/">https://datmoitapdev.github.io/secretletter/</a>
+  🌐 <b>Bản Trình Diễn Trực Tuyến (Portfolio Preview):</b> <a href="https://datmoitapdev.github.io/secretletter/">https://datmoitapdev.github.io/secretletter/</a>
 </p>
 
-> **Digital Secret Letter** là nền tảng web tạo và gửi những lá thư kỹ thuật số cảm xúc, tinh tế và an toàn tuyệt đối. Được thiết kế với kiến trúc **3 tầng giao diện độc lập**, hiệu ứng mở phong bì 3D sống động, nhạc nền MP3 tự động theo 4 chủ đề và cơ chế bảo mật hai tầng ổ khóa độc đáo.
+> [!NOTE]
+> **Mục Đích Dự Án**: **Digital Secret Letter** là dự án cá nhân (Personal Demo & Portfolio Showcase) nhằm trình diễn năng lực kỹ thuật Full-stack: kiến trúc giao diện tương tác, hiệu ứng mở phong bì 3D, Web Audio Sound Engine, mã hóa dữ liệu cục bộ với Web Crypto API (AES-256-GCM, PBKDF2), và thuật toán xử lý xung đột đồng thời (Optimistic Concurrency Control - OCC ETag).
+> 
+> **Tuyên Bố Phạm Vi**: Dự án hiện tại phục vụ mục đích học tập, nghiên cứu và phỏng vấn kỹ thuật; **chưa cung cấp dịch vụ thương mại** và **chưa áp dụng để lưu trữ dữ liệu cá nhân nhạy cảm thực tế**.
 
 ---
 
-## 🌟 Demo & Tính Năng Cốt Lõi
+## ⚠️ Giới Hạn Bảo Mật & Lưu Ý Kỹ Thuật (Security Limitations & Disclaimers)
+
+Nhằm đảm bảo tính minh bạch kỹ thuật tối đa (không quảng cáo sai lệch "an toàn tuyệt đối", "mã hóa cục bộ" hay "E2EE hoàn hảo"):
+
+1. **Lưu trữ Cục bộ trên GitHub Pages (Plain JSON LocalStorage)**:
+   - Trong bản demo web tĩnh (GitHub Pages), dữ liệu tài khoản (`gh_mock_users`), thư (`gh_mock_letters`) và Vibe Hub được lưu trữ dưới dạng **JSON thông thường (plaintext)** trong `LocalStorage` của trình duyệt người dùng.
+   - Bất kỳ ai mở Developer Tools (F12) đều có thể xem và chỉnh sửa dữ liệu này. **Tuyệt đối KHÔNG lưu trữ mật khẩu thật, thư nhạy cảm hoặc bí mật cá nhân** trong phiên bản demo này.
+2. **Khóa Mặc Định `VAULT_SECRET` (Hardcoded Secret Limitation)**:
+   - Trong mã nguồn frontend, chuỗi `VAULT_SECRET` là passphrase cố định công khai trong client bundle, dùng để trình diễn thuật toán mã hóa AES-256-GCM + PBKDF2 (100,000 rounds).
+   - Việc dùng khóa công khai hardcode **không đem lại tính bảo mật thực tế**. Khi ứng dụng hoạt động không có mật khẩu người dùng tự chọn, dữ liệu mã hóa này có thể bị giải mã bởi bất kỳ ai có client bundle.
+3. **Tính Năng Đồng Bộ Đám Mây (Cloud Sync Đã Tắt Hoàn Toàn)**:
+   - Để ngăn ngừa các cuộc gọi mạng unauthenticated ra ngoài, chống rò rỉ dữ liệu và bảo vệ tính nguyên vẹn của hệ thống, tính năng Cloud Sync tự động **đã bị tắt hoàn toàn** trong bản demo này (kể cả khi LocalStorage có URL cũ hoặc URL truyền qua query string).
+   - Dữ liệu người dùng trên máy hiện tại không bị xóa. Để chuyển dữ liệu giữa các máy, người dùng có thể dùng **Quét Mã QR** hoặc **Xuất/Nạp File .json dự phòng**.
+4. **Không Có Cơ Chế Khôi Phục Mật Mã**:
+   - Khi người dùng đặt mật mã riêng cho từng lá thư, nội dung được mã hóa theo mật mã đó. Nếu quên mật mã, nội dung lá thư sẽ vĩnh viễn không thể khôi phục do không có backdoor hay master key giải mã.
+
+---
+
+## 🌟 Tính Năng Trình Diễn Kỹ Thuật (Showcase Features)
 
 ### 1. 🏛️ Kiến Trúc 3 Tầng Giao Diện Riêng Biệt
 

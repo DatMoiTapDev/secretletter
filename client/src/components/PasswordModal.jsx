@@ -75,7 +75,8 @@ export default function PasswordModal({
             soundEngine.playClickSound();
             onClose();
           }}
-          className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+          aria-label="Đóng hộp thoại mật mã"
+          className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-white rounded-full hover:bg-white/10 transition-colors cursor-pointer"
         >
           <X size={18} />
         </button>
@@ -120,6 +121,7 @@ export default function PasswordModal({
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
               className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}

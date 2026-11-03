@@ -180,44 +180,13 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
     }
   };
 
-  // Lưu URL Firebase Realtime Database
+  // Lưu URL Firebase Realtime Database (Đã tắt trong Personal Demo)
   const handleSaveCloudUrl = async (e) => {
     e.preventDefault();
     soundEngine.playClickSound();
-    setCloudSaving(true);
-    setCloudStatusMsg('');
-
-    const cleanUrl = cloudDbUrl.trim().replace(/\/$/, '');
-    if (!cleanUrl) {
-      localStorage.removeItem('gh_cloud_db_url');
-      setCloudStatusMsg('✓ Đã tắt kết nối đám mây, trở về chế độ LocalStorage.');
-      setCloudSaving(false);
-      return;
-    }
-
-    try {
-      // Test kết nối bằng cách PUT dữ liệu hiện tại lên Firebase
-      const payload = getSyncPayload();
-      const testRes = await fetch(`${cleanUrl}/secretletter.json`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...payload,
-          updatedAt: new Date().toISOString()
-        })
-      });
-
-      if (testRes.ok) {
-        localStorage.setItem('gh_cloud_db_url', cleanUrl);
-        setCloudStatusMsg('🎉 Kết nối Firebase Realtime Database thành công! Tất cả thiết bị đã được kích hoạt đồng bộ tự động 24/7.');
-      } else {
-        setCloudStatusMsg('❌ Không thể ghi dữ liệu vào Firebase URL này. Vui lòng kiểm tra lại Rules hoặc địa chỉ.');
-      }
-    } catch (err) {
-      setCloudStatusMsg('❌ Lỗi kết nối tới URL này. Đảm bảo URL có dạng https://<project-id>-default-rtdb.firebaseio.com');
-    } finally {
-      setCloudSaving(false);
-    }
+    setCloudStatusMsg(
+      '⚠️ Tính năng Đồng bộ Đám mây (Cloud Sync) hiện đang được TẮT trong phiên bản Personal Demo để đảm bảo an toàn. Dữ liệu hiện có không bị thay đổi. Vui lòng sử dụng tính năng "Quét Mã QR" hoặc "File Dự Phòng .json".'
+    );
   };
 
   // Style classes
@@ -336,6 +305,15 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
         {/* ================= TAB 1: QUÉT QR HOẶC GỬI LINK ================= */}
         {activeTab === 'qr' && (
           <div className="space-y-5">
+            {/* CẢNH BÁO BẢO MẬT DEMO */}
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2.5 leading-relaxed">
+              <AlertCircle size={16} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <div>
+                <span className="font-bold block mb-0.5">Lưu ý bảo mật (Personal Demo):</span>
+                <span>Mã QR và đường link đồng bộ chứa dữ liệu tài khoản ở định dạng có thể đọc được (plaintext). Tuyệt đối không dùng để chia sẻ tài khoản thật hoặc dữ liệu riêng tư.</span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
               {/* KHUNG HIỂN THỊ MÃ QR */}
               <div className="flex flex-col items-center justify-center p-5 rounded-2xl bg-white text-neutral-900 border border-neutral-300 shadow-md">
@@ -424,6 +402,15 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
         {/* ================= TAB 2: SAO LƯU & FILE JSON ================= */}
         {activeTab === 'backup' && (
           <div className="space-y-5">
+            {/* CẢNH BÁO BẢO MẬT DEMO */}
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2.5 leading-relaxed">
+              <AlertCircle size={16} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <div>
+                <span className="font-bold block mb-0.5">Lưu ý bảo mật (Personal Demo):</span>
+                <span>File <code>.json</code> xuất ra là văn bản thông thường (plaintext), không được mã hóa. Bất kỳ ai có file này đều có thể đọc toàn bộ danh sách tài khoản và các lá thư. Tuyệt đối không dùng cho thư riêng tư hoặc bí mật cá nhân.</span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* TẢI FILE BACKUP */}
               <div
@@ -436,7 +423,7 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
                   <span>1. Tải File Dữ Liệu Dự Phòng</span>
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                  Xuất toàn bộ danh sách tài khoản, các lá thư và Vibe Hub ra file <code>.json</code> để lưu trữ an toàn hoặc chuyển sang thiết bị khác.
+                  Xuất toàn bộ danh sách tài khoản, các lá thư và Vibe Hub ra file <code>.json</code> để sao lưu hoặc chuyển sang thiết bị khác.
                 </p>
                 <button
                   type="button"
@@ -498,7 +485,7 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
           </div>
         )}
 
-        {/* ================= TAB 3: ĐÁM MÂY TỰ ĐỘNG 24/7 (FIREBASE) ================= */}
+        {/* ================= TAB 3: ĐÁM MÂY TỰ ĐỘNG (ĐÃ TẮT TRONG PERSONAL DEMO) ================= */}
         {activeTab === 'cloud' && (
           <div className="space-y-5">
             <div
@@ -508,48 +495,43 @@ export default function DeviceSyncModal({ isOpen, onClose, isDarkMode }) {
             >
               <span className="font-bold flex items-center gap-1.5 text-sm">
                 <Cloud size={16} />
-                <span>Đồng bộ Đám mây Tự động 24/7 (Google Firebase Miễn Phí)</span>
+                <span>Đồng bộ Đám mây (Đã tắt trong bản Personal Demo)</span>
               </span>
               <p>
-                Khi kết nối Firebase Realtime Database, mọi tài khoản bạn tạo, thư gửi đi hay mở khóa đều tự động đồng bộ tức thì trên toàn bộ điện thoại và máy tính mà <strong>không cần phải quét QR hay gửi link thủ công</strong>!
+                Để đảm bảo an toàn tuyệt đối, ngăn ngừa các cuộc gọi mạng unauthenticated ra bên ngoài và bảo toàn dữ liệu, tính năng Cloud Sync tự động hiện đang được <strong>TẮT HOÀN TOÀN</strong> trong bản Personal Demo.
+              </p>
+              <p>
+                Toàn bộ dữ liệu hiện tại của bạn vẫn được lưu giữ an toàn trên thiết bị. Bạn có thể sử dụng <strong>Tab 1 (Quét Mã QR)</strong> hoặc <strong>Tab 2 (Sao Lưu & Nạp File .json)</strong> để chuyển dữ liệu an toàn giữa các thiết bị.
               </p>
             </div>
 
             <form onSubmit={handleSaveCloudUrl} className="space-y-4">
               <div>
                 <label className="text-xs font-serif font-medium block mb-1">
-                  Địa chỉ Firebase Realtime Database URL:
+                  Địa chỉ Firebase Realtime Database URL (Chỉ đọc cấu hình):
                 </label>
                 <input
                   type="url"
+                  disabled
                   value={cloudDbUrl}
-                  onChange={(e) => setCloudDbUrl(e.target.value)}
-                  placeholder="https://secretletter-xxxx-default-rtdb.firebaseio.com"
-                  className={`w-full px-4 py-2.5 rounded-xl text-xs font-mono outline-none ${inputCls}`}
+                  placeholder="Tính năng kết nối Cloud đang bị vô hiệu hóa trong bản Demo"
+                  className={`w-full px-4 py-2.5 rounded-xl text-xs font-mono outline-none opacity-60 cursor-not-allowed ${inputCls}`}
                 />
-                <span className="text-[11px] mt-1 block text-neutral-500">
-                  Ví dụ: <code>https://my-secretletter-default-rtdb.firebaseio.com</code>
-                </span>
               </div>
 
               <div className="flex items-center gap-3">
                 <button
                   type="submit"
-                  disabled={cloudSaving}
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-serif font-bold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-neutral-300 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-serif font-bold text-xs shadow-xs transition-all cursor-pointer"
                 >
-                  {cloudSaving ? <RefreshCw size={15} className="animate-spin" /> : <Cloud size={15} />}
-                  <span>{cloudSaving ? 'Đang kiểm tra kết nối...' : 'Lưu & Kích Hoạt Đồng Bộ Đám Mây'}</span>
+                  <Cloud size={15} />
+                  <span>Trạng thái: Đã tắt kết nối Cloud (Chế độ Demo)</span>
                 </button>
               </div>
 
               {cloudStatusMsg && (
                 <div
-                  className={`p-3 rounded-xl border text-xs font-serif font-medium ${
-                    cloudStatusMsg.startsWith('🎉') || cloudStatusMsg.startsWith('✓')
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
-                  }`}
+                  className="p-3 rounded-xl border text-xs font-serif font-medium bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300"
                 >
                   {cloudStatusMsg}
                 </div>
